@@ -1,26 +1,36 @@
 /* =========================================================
-   NIVO DASHBOARD JS
+   NIVO DASHBOARD JS — versión quirúrgica
    Archivo: assets/js/dashboard.js
 
-   Función:
-   - Proteger dashboard solo para admin activo.
-   - Cargar métricas reales desde Firestore.
-   - Leer usuarios, conductores, comercios, agentes y zonas.
-   - Aprobar / rechazar / pedir corrección / bloquear conductores.
-   - Aprobar / rechazar / pedir corrección / bloquear comercios.
-   - Convertir usuarios registrados en administradores creando admin_profiles/{uid}.
-   - Crear auditoría en admin_actions/{actionId}.
-   - Controlar sidebar, secciones, drawer, modales, filtros y toasts.
+   Alineado con Firestore real:
+   - users
+   - admin_profiles
+   - driver_profiles
+   - driver_vehicles
+   - driver_wallets
+   - driver_wallet_transactions
+   - driver_offers
+   - commerce_users
+   - commerce_profiles
+   - commerce_products
+   - commerce_product_categories
+   - delivery_orders
+   - ride_requests
+   - service_zones
+   - fare_configs
+   - platform_configs
+   - notifications
+   - support_tickets
 
-   Importante:
-   - El admin NO se crea cambiando users/{uid}.role.
-   - El admin se crea con admin_profiles/{uid}.
-   - Este archivo depende de assets/js/auth.js.
+   Reglas críticas:
+   - Admin se valida por admin_profiles/{uid}.status == active.
+   - Driver aprobado usa driver_profiles.status = "approved".
+   - Commerce aprobado usa commerce_users.status = "active" y
+     commerce_profiles.active/verified/canReceiveDeliveryOrders = true.
+   - Tarifas se leen desde fare_configs, no desde service_zones.transportConfigs.
 ========================================================= */
 
-import {
-  onAuthStateChanged,
-} from "https://www.gstatic.com/firebasejs/10.12.5/firebase-auth.js";
+import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-auth.js";
 
 import {
   collection,
@@ -36,10 +46,6 @@ import {
   serverTimestamp,
 } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore.js";
 
-/* =========================================================
-   DOM READY BASE
-========================================================= */
-
 document.documentElement.classList.remove("no-js");
 
 /* =========================================================
@@ -49,158 +55,107 @@ document.documentElement.classList.remove("no-js");
 const COLLECTIONS = Object.freeze({
   users: "users",
   adminProfiles: "admin_profiles",
+
   driverProfiles: "driver_profiles",
+  driverVehicles: "driver_vehicles",
+  driverWallets: "driver_wallets",
+  driverWalletTransactions: "driver_wallet_transactions",
+  driverTopupSessions: "driver_topup_sessions",
+  driverOffers: "driver_offers",
+
+  commerceUsers: "commerce_users",
   commerceProfiles: "commerce_profiles",
+  commerceProducts: "commerce_products",
+  commerceProductCategories: "commerce_product_categories",
+  commerceChats: "commerce_chats",
+
+  orderDrafts: "order_drafts",
+
   agentProfiles: "agent_profiles",
+  agentSales: "agent_sales",
+
   serviceZones: "service_zones",
-  rideTypes: "ride_types",
-  adminActions: "admin_actions",
-  notifications: "notifications",
-  notificationTokens: "notification_tokens",
+  fareConfigs: "fare_configs",
+  platformConfigs: "platform_configs",
+
   deliveryOrders: "delivery_orders",
   rideRequests: "ride_requests",
-  incidents: "incidents",
+  packageOrders: "package_orders",
+
+  notifications: "notifications",
   supportTickets: "support_tickets",
-  sanctions: "sanctions",
-  wallets: "wallets",
-  walletLedger: "wallet_ledger",
-  topups: "topups",
-  agentTopups: "agent_topups",
-  paymentTransactions: "payment_transactions",
+  safetyReports: "safety_reports",
+
+  driverSanctions: "driver_sanctions",
+  driverPolicyEvents: "driver_policy_events",
+  auditLogs: "audit_logs",
+  adminActions: "admin_actions",
+
   cashSettlements: "cash_settlements",
-  driverLocations: "driver_locations",
-  activeUserLocations: "active_user_locations",
-  appSettings: "app_settings",
 });
 
 const SECTION_META = Object.freeze({
-  overview: {
-    title: "Centro operativo NIVO",
-    breadcrumb: "Dashboard / Resumen",
-  },
-  users: {
-    title: "Usuarios registrados",
-    breadcrumb: "Dashboard / Usuarios",
-  },
-  drivers: {
-    title: "Conductores y repartidores",
-    breadcrumb: "Dashboard / Conductores",
-  },
-  "driver-review": {
-    title: "Aprobación de conductores",
-    breadcrumb: "Dashboard / Revisión conductores",
-  },
-  commerce: {
-    title: "Comercios registrados",
-    breadcrumb: "Dashboard / Comercios",
-  },
-  "commerce-review": {
-    title: "Aprobación de comercios",
-    breadcrumb: "Dashboard / Revisión comercios",
-  },
-  agents: {
-    title: "Agentes NIVO",
-    breadcrumb: "Dashboard / Agentes",
-  },
-  zones: {
-    title: "Zonas operativas",
-    breadcrumb: "Dashboard / Zonas",
-  },
-  "ride-types": {
-    title: "Categorías de transporte",
-    breadcrumb: "Dashboard / Categorías transporte",
-  },
-  pricing: {
-    title: "Tarifas y comisiones",
-    breadcrumb: "Dashboard / Tarifas",
-  },
-  delivery: {
-    title: "Delivery / Órdenes",
-    breadcrumb: "Dashboard / Delivery",
-  },
-  rides: {
-    title: "Viajes / Solicitudes",
-    breadcrumb: "Dashboard / Viajes",
-  },
-  locations: {
-    title: "Ubicaciones operativas",
-    breadcrumb: "Dashboard / Ubicaciones",
-  },
-  wallet: {
-    title: "Wallet / Recargas",
-    breadcrumb: "Dashboard / Wallet",
-  },
-  "cash-settlements": {
-    title: "Liquidaciones de efectivo",
-    breadcrumb: "Dashboard / Liquidaciones",
-  },
-  support: {
-    title: "Soporte e incidencias",
-    breadcrumb: "Dashboard / Soporte",
-  },
-  sanctions: {
-    title: "Sanciones y bloqueos",
-    breadcrumb: "Dashboard / Sanciones",
-  },
-  notifications: {
-    title: "Notificaciones",
-    breadcrumb: "Dashboard / Notificaciones",
-  },
-  audit: {
-    title: "Auditoría administrativa",
-    breadcrumb: "Dashboard / Auditoría",
-  },
-  settings: {
-    title: "Configuración general",
-    breadcrumb: "Dashboard / Configuración",
-  },
+  overview: ["Centro operativo NIVO", "Dashboard / Resumen"],
+  users: ["Usuarios registrados", "Dashboard / Usuarios"],
+  drivers: ["Conductores y repartidores", "Dashboard / Conductores"],
+  "driver-review": ["Aprobación de conductores", "Dashboard / Revisión conductores"],
+  commerce: ["Comercios registrados", "Dashboard / Comercios"],
+  "commerce-review": ["Aprobación de comercios", "Dashboard / Revisión comercios"],
+  agents: ["Agentes NIVO", "Dashboard / Agentes"],
+  zones: ["Zonas operativas", "Dashboard / Zonas"],
+  "ride-types": ["Categorías de transporte", "Dashboard / Categorías transporte"],
+  pricing: ["Tarifas y comisiones", "Dashboard / Tarifas"],
+  delivery: ["Delivery / Órdenes", "Dashboard / Delivery"],
+  rides: ["Viajes / Solicitudes", "Dashboard / Viajes"],
+  locations: ["Ubicaciones operativas", "Dashboard / Ubicaciones"],
+  wallet: ["Wallet / Recargas", "Dashboard / Wallet"],
+  "cash-settlements": ["Liquidaciones de efectivo", "Dashboard / Liquidaciones"],
+  support: ["Soporte e incidencias", "Dashboard / Soporte"],
+  sanctions: ["Sanciones y bloqueos", "Dashboard / Sanciones"],
+  notifications: ["Notificaciones", "Dashboard / Notificaciones"],
+  audit: ["Auditoría administrativa", "Dashboard / Auditoría"],
+  settings: ["Configuración general", "Dashboard / Configuración"],
 });
 
-const DRIVER_REVIEW_STATUSES = new Set([
-  "pending_documents",
-  "pending_review",
-  "correction_required",
-]);
+const DRIVER_STATUSES = Object.freeze({
+  pendingDocuments: "pending_documents",
+  pendingReview: "pending_review",
+  approved: "approved",
+  rejected: "rejected",
+  blocked: "blocked",
+  fraudSuspected: "fraud_suspected",
+  correctionRequired: "correction_required",
+});
 
-const COMMERCE_REVIEW_STATUSES = new Set([
-  "pending_profile",
-  "pending_review",
-  "correction_required",
-]);
-
-const BLOCKED_STATUSES = new Set([
-  "blocked",
-  "rejected",
-  "suspended",
-  "disabled",
-  "account_restricted",
-]);
-
-const VEHICLE_LABELS = Object.freeze({
-  car: "Carro",
-  vehicle: "Carro",
-  motorcycle: "Moto",
-  moto: "Moto",
-  mototaxi: "Mototaxi",
-  qute: "Qute",
-  bicycle: "Bicicleta",
-  pickup: "Pickup",
+const COMMERCE_USER_STATUSES = Object.freeze({
+  pendingProfile: "pending_profile",
+  pendingVerification: "pending_verification",
+  active: "active",
+  suspended: "suspended",
 });
 
 const STATUS_LABELS = Object.freeze({
   active: "Activo",
+  approved: "Aprobado",
   inactive: "Inactivo",
+  pending: "Pendiente",
   pending_profile: "Perfil pendiente",
   pending_documents: "Documentos pendientes",
   pending_review: "En revisión",
-  pending_activation: "Activación pendiente",
+  pending_verification: "En verificación",
   correction_required: "Corrección requerida",
   rejected: "Rechazado",
   blocked: "Bloqueado",
   suspended: "Suspendido",
-  disabled: "Deshabilitado",
-  account_restricted: "Cuenta restringida",
-  approved: "Aprobado",
+  fraud_suspected: "Fraude sospechado",
+  ready_for_pickup: "Listo para recoger",
+  pending_driver: "Pendiente de repartidor",
+  searching_driver: "Buscando repartidor",
+  preparing: "Preparando",
+  delivered: "Entregado",
+  cancelled: "Cancelado",
+  unread: "No leído",
+  read: "Leído",
 });
 
 const ROLE_LABELS = Object.freeze({
@@ -209,7 +164,6 @@ const ROLE_LABELS = Object.freeze({
   commerce: "Comercio",
   agent: "Agente",
   admin: "Admin",
-  owner: "Owner",
   super_admin: "Super admin",
   operations: "Operaciones",
   support: "Soporte",
@@ -218,23 +172,43 @@ const ROLE_LABELS = Object.freeze({
   viewer: "Viewer",
 });
 
-const DEFAULT_LIMITS = Object.freeze({
-  users: 750,
-  drivers: 750,
-  commerce: 750,
-  agents: 500,
-  zones: 250,
-  rideTypes: 100,
-  audit: 150,
-  notifications: 120,
-  deliveryOrders: 200,
-  rideRequests: 200,
-  incidents: 200,
-  sanctions: 200,
-  walletLedger: 200,
-  cashSettlements: 200,
-  locations: 200,
+const SERVICE_LABELS = Object.freeze({
+  ride: "Viajes",
+  delivery: "Delivery",
+  package: "Paquetes",
+  school: "Escolar",
 });
+
+const VEHICLE_LABELS = Object.freeze({
+  car: "Carro",
+  vehicle: "Carro",
+  motorcycle: "Moto",
+  moto: "Moto",
+  motorbike: "Moto",
+  mototaxi: "Mototaxi",
+  qute: "Qute",
+  quote: "Qute",
+});
+
+const DRIVER_REVIEW_STATUSES = new Set([
+  DRIVER_STATUSES.pendingDocuments,
+  DRIVER_STATUSES.pendingReview,
+  DRIVER_STATUSES.correctionRequired,
+]);
+
+const BLOCKED_STATUSES = new Set([
+  "blocked",
+  "rejected",
+  "fraud_suspected",
+  "suspended",
+  "disabled",
+  "account_restricted",
+]);
+
+const WELCOME_BALANCE = 10;
+const MINIMUM_DRIVER_BALANCE = 1;
+const DEFAULT_CURRENCY = "USD";
+const DEFAULT_COUNTRY = "SV";
 
 /* =========================================================
    ESTADO GLOBAL
@@ -242,6 +216,7 @@ const DEFAULT_LIMITS = Object.freeze({
 
 const state = {
   initialized: false,
+
   authCore: null,
   auth: null,
   db: null,
@@ -251,37 +226,49 @@ const state = {
   currentSection: "overview",
   currentDriverQuickFilter: "all",
   activeDetail: null,
+  pendingConfirm: null,
 
   users: [],
   adminProfiles: [],
+
   drivers: [],
+  driverVehicles: [],
+  driverWallets: [],
+  driverWalletTransactions: [],
+  driverTopupSessions: [],
+  driverOffers: [],
+
+  commerceUsers: [],
   commerce: [],
+  commerceProducts: [],
+  commerceProductCategories: [],
+  commerceChats: [],
+  orderDrafts: [],
+
   agents: [],
+  agentSales: [],
+
   serviceZones: [],
+  fareConfigs: [],
+  platformConfigs: [],
   rideTypes: [],
-  adminActions: [],
-  notifications: [],
+
   deliveryOrders: [],
   rideRequests: [],
-  incidents: [],
+  packageOrders: [],
+
+  notifications: [],
+  supportTickets: [],
+  safetyReports: [],
+
   sanctions: [],
-  walletLedger: [],
+  driverPolicyEvents: [],
+  auditLogs: [],
+  adminActions: [],
+
   cashSettlements: [],
-  driverLocations: [],
-  activeUserLocations: [],
-  appSettings: [],
 
-  indexes: {
-    usersById: new Map(),
-    driversById: new Map(),
-    commerceById: new Map(),
-    agentsById: new Map(),
-    adminsById: new Map(),
-    zonesById: new Map(),
-    rideTypesById: new Map(),
-  },
-
-  pendingConfirm: null,
+  indexes: {},
 };
 
 /* =========================================================
@@ -292,7 +279,7 @@ const $ = (selector, root = document) => root.querySelector(selector);
 const $$ = (selector, root = document) => Array.from(root.querySelectorAll(selector));
 
 /* =========================================================
-   INICIALIZACIÓN
+   INIT
 ========================================================= */
 
 main();
@@ -322,8 +309,6 @@ async function waitForAuthCore() {
   state.authCore = window.NIVOAuthCore;
   state.auth = state.authCore.getAuth();
   state.db = state.authCore.getDb();
-
-  return state.authCore;
 }
 
 function protectDashboard() {
@@ -331,7 +316,7 @@ function protectDashboard() {
     onAuthStateChanged(state.auth, async (firebaseUser) => {
       try {
         if (!firebaseUser) {
-          safeRedirect("login.html");
+          window.location.assign("login.html");
           resolve(false);
           return;
         }
@@ -365,39 +350,8 @@ function protectDashboard() {
 }
 
 /* =========================================================
-   UI BASE
+   EVENTOS
 ========================================================= */
-
-function showDashboardShell() {
-  $("#dashboardAuthGate")?.setAttribute("hidden", "");
-  $("#dashboardAccessDenied")?.setAttribute("hidden", "");
-  $("#dashboardShell")?.removeAttribute("hidden");
-}
-
-function showAccessDenied(message) {
-  $("#dashboardAuthGate")?.setAttribute("hidden", "");
-  $("#dashboardShell")?.setAttribute("hidden", "");
-
-  const denied = $("#dashboardAccessDenied");
-  if (denied) denied.removeAttribute("hidden");
-
-  const cardText = $("#dashboardAccessDenied p:not(.eyebrow)");
-  if (cardText && message) {
-    cardText.textContent = message;
-  }
-}
-
-function setAdminUi(context) {
-  const name =
-    context.displayName ||
-    context.fullName ||
-    context.email ||
-    "Admin NIVO";
-
-  setText("sidebarAdminName", name);
-  setText("sidebarAdminEmail", context.email || "Sin correo");
-  setText("sidebarAdminRole", ROLE_LABELS[context.adminRole] || context.adminRole || "admin");
-}
 
 function bindStaticUiEvents() {
   document.addEventListener("click", handleDocumentClick);
@@ -406,17 +360,13 @@ function bindStaticUiEvents() {
   document.addEventListener("change", handleDocumentChange);
   document.addEventListener("keydown", handleDocumentKeydown);
 
-  $("#globalSearch")?.addEventListener("input", debounce(() => {
-    renderCurrentSection();
-  }, 180));
+  $("#globalSearch")?.addEventListener("input", debounce(renderCurrentSection, 180));
 
   $("#refreshDashboardBtn")?.addEventListener("click", () => {
     loadDashboardData({ forceToast: true });
   });
 
-  $("#logoutBtn")?.addEventListener("click", async () => {
-    await logout();
-  });
+  $("#logoutBtn")?.addEventListener("click", logout);
 
   $("#sidebarOpenBtn")?.addEventListener("click", () => {
     document.body.classList.add("sidebar-open", "is-locked");
@@ -426,210 +376,204 @@ function bindStaticUiEvents() {
     document.body.classList.remove("sidebar-open", "is-locked");
   });
 
-  bindFilter("usersSearchInput", renderUsersTable);
-  bindFilter("usersRoleFilter", renderUsersTable);
-  bindFilter("usersStatusFilter", renderUsersTable);
-  bindFilter("usersZoneFilter", renderUsersTable);
+  ["usersSearchInput", "usersRoleFilter", "usersStatusFilter", "usersZoneFilter"].forEach((id) => {
+    bindFilter(id, renderUsersTable);
+  });
 
-  bindFilter("driversSearchInput", renderDriversTable);
-  bindFilter("driversVehicleFilter", renderDriversTable);
-  bindFilter("driversServiceFilter", renderDriversTable);
-  bindFilter("driversZoneFilter", renderDriversTable);
+  ["driversSearchInput", "driversVehicleFilter", "driversServiceFilter", "driversZoneFilter"].forEach((id) => {
+    bindFilter(id, renderDriversTable);
+  });
 
-  bindFilter("commerceSearchInput", renderCommerceTable);
-  bindFilter("commerceStatusFilter", renderCommerceTable);
-  bindFilter("commercePlanFilter", renderCommerceTable);
-  bindFilter("commerceZoneFilter", renderCommerceTable);
+  ["commerceSearchInput", "commerceStatusFilter", "commercePlanFilter", "commerceZoneFilter"].forEach((id) => {
+    bindFilter(id, renderCommerceTable);
+  });
 }
 
 function bindFilter(id, callback) {
-  const el = document.getElementById(id);
-  if (!el) return;
-  el.addEventListener("input", debounce(callback, 120));
-  el.addEventListener("change", callback);
+  const element = document.getElementById(id);
+
+  if (!element) return;
+
+  element.addEventListener("input", debounce(callback, 120));
+  element.addEventListener("change", callback);
 }
 
 function handleDocumentClick(event) {
   const target = event.target.closest("[data-action], [data-section-target], [data-detail-tab], [data-driver-filter]");
+
   if (!target) return;
 
-  const sectionTarget = target.dataset.sectionTarget;
-  if (sectionTarget) {
-    showSection(sectionTarget);
+  if (target.dataset.sectionTarget) {
+    showSection(target.dataset.sectionTarget);
     return;
   }
 
-  const driverFilter = target.dataset.driverFilter;
-  if (driverFilter) {
-    setDriverQuickFilter(driverFilter);
+  if (target.dataset.driverFilter) {
+    setDriverQuickFilter(target.dataset.driverFilter);
     return;
   }
 
-  const detailTab = target.dataset.detailTab;
-  if (detailTab) {
-    showDetailTab(detailTab);
+  if (target.dataset.detailTab) {
+    showDetailTab(target.dataset.detailTab);
     return;
   }
 
   const action = target.dataset.action;
+  const id = target.dataset.id;
 
   switch (action) {
     case "close-detail-drawer":
       closeDetailDrawer();
-      break;
+      return;
 
     case "close-review-modal":
       closeModal("reviewDecisionModal");
-      break;
+      return;
 
     case "close-make-admin-modal":
       closeModal("makeAdminModal");
-      break;
+      return;
 
     case "close-zone-modal":
       closeModal("zoneModal");
-      break;
+      return;
 
     case "close-ride-type-modal":
       closeModal("rideTypeModal");
-      break;
+      return;
 
     case "close-notification-modal":
       closeModal("notificationModal");
-      break;
+      return;
 
     case "close-confirm-modal":
       closeConfirmModal();
-      break;
+      return;
 
     case "close-image-viewer":
       closeImageViewer();
-      break;
+      return;
 
     case "reload-users":
-      loadDashboardData({ focus: "users", forceToast: true });
-      break;
-
     case "reload-drivers":
     case "reload-driver-review":
-      loadDashboardData({ focus: "drivers", forceToast: true });
-      break;
-
     case "reload-commerce":
     case "reload-commerce-review":
-      loadDashboardData({ focus: "commerce", forceToast: true });
-      break;
-
     case "reload-agents":
-      loadDashboardData({ focus: "agents", forceToast: true });
-      break;
-
     case "reload-pricing":
-    case "reload-rides":
     case "reload-delivery":
+    case "reload-rides":
+    case "reload-locations":
     case "reload-wallet":
     case "reload-cash-settlements":
     case "reload-support":
-    case "reload-locations":
     case "reload-audit":
       loadDashboardData({ forceToast: true });
-      break;
+      return;
 
     case "open-zone-modal":
       openZoneModal();
-      break;
+      return;
 
     case "open-ride-type-modal":
       openRideTypeModal();
-      break;
+      return;
 
     case "open-notification-modal":
       openNotificationModal();
-      break;
+      return;
 
     case "open-sanction-modal":
-      showToast("El módulo de sanciones se conectará en la siguiente fase funcional.", "info", "Módulo preparado");
-      break;
+      showToast("El módulo de sanciones queda preparado. La automatización disciplinaria se conectará en la siguiente fase.", "info", "Módulo preparado");
+      return;
 
     case "open-user-detail":
-      openUserDetail(target.dataset.id);
-      break;
+      openUserDetail(id);
+      return;
 
     case "open-driver-detail":
-      openDriverDetail(target.dataset.id);
-      break;
+      openDriverDetail(id);
+      return;
 
     case "open-commerce-detail":
-      openCommerceDetail(target.dataset.id);
-      break;
+      openCommerceDetail(id);
+      return;
 
     case "open-agent-detail":
-      openAgentDetail(target.dataset.id);
-      break;
+      openAgentDetail(id);
+      return;
 
     case "open-zone-detail":
-      openZoneDetail(target.dataset.id);
-      break;
+      openZoneDetail(id);
+      return;
 
     case "open-ride-type-detail":
-      openRideTypeDetail(target.dataset.id);
-      break;
+      openRideTypeDetail(id);
+      return;
+
+    case "open-delivery-detail":
+      openDeliveryDetail(id);
+      return;
+
+    case "open-ride-detail":
+      openRideDetail(id);
+      return;
 
     case "open-review-modal":
       openReviewModal({
-        targetId: target.dataset.id,
+        targetId: id,
         targetCollection: target.dataset.collection,
         targetRole: target.dataset.role,
         decision: target.dataset.decision || "",
       });
-      break;
+      return;
 
     case "make-admin":
-      openMakeAdminModal(target.dataset.id);
-      break;
+      openMakeAdminModal(id);
+      return;
 
     case "block-user":
-      confirmUserStatusChange(target.dataset.id, "blocked");
-      break;
+      confirmUserStatusChange(id, "blocked");
+      return;
 
     case "reactivate-user":
-      confirmUserStatusChange(target.dataset.id, "active");
-      break;
+      confirmUserStatusChange(id, "active");
+      return;
 
     case "drawer-send-notification":
       openNotificationFromDrawer();
-      break;
+      return;
 
     case "drawer-require-correction":
       openReviewFromDrawer("correction_required");
-      break;
+      return;
 
     case "drawer-block-profile":
       openReviewFromDrawer("block");
-      break;
+      return;
 
     case "drawer-approve-profile":
       openReviewFromDrawer("approve");
-      break;
+      return;
 
     case "view-image":
       openImageViewer(target.dataset.src, target.dataset.title);
-      break;
+      return;
 
     case "edit-zone":
-      openZoneModal(target.dataset.id);
-      break;
+      openZoneModal(id);
+      return;
 
     case "edit-ride-type":
-      openRideTypeModal(target.dataset.id);
-      break;
+      openRideTypeModal(id);
+      return;
 
     case "export-overview":
-      showToast("La exportación se agregará después de validar las métricas principales.", "info", "Exportación pendiente");
-      break;
+      showToast("La exportación quedará conectada cuando definamos formato CSV/PDF.", "info", "Exportación preparada");
+      return;
 
     default:
-      break;
+      return;
   }
 }
 
@@ -639,21 +583,25 @@ function handleDocumentSubmit(event) {
   if (form.id === "reviewDecisionForm") {
     event.preventDefault();
     handleReviewDecisionSubmit();
+    return;
   }
 
   if (form.id === "makeAdminForm") {
     event.preventDefault();
     handleMakeAdminSubmit();
+    return;
   }
 
   if (form.id === "zoneForm") {
     event.preventDefault();
     handleZoneSubmit();
+    return;
   }
 
   if (form.id === "rideTypeForm") {
     event.preventDefault();
     handleRideTypeSubmit();
+    return;
   }
 
   if (form.id === "notificationForm") {
@@ -677,21 +625,9 @@ function handleDocumentChange(event) {
 function handleDocumentKeydown(event) {
   if (event.key !== "Escape") return;
 
-  if ($("#imageViewerModal")?.classList.contains("is-open")) {
-    closeImageViewer();
-    return;
-  }
-
-  if ($(".modal.is-open")) {
-    closeAllModals();
-    return;
-  }
-
-  if ($("#detailDrawer")?.classList.contains("is-open")) {
-    closeDetailDrawer();
-    return;
-  }
-
+  closeAllModals();
+  closeImageViewer();
+  closeDetailDrawer();
   document.body.classList.remove("sidebar-open", "is-locked");
 }
 
@@ -699,70 +635,136 @@ function handleDocumentKeydown(event) {
    CARGA DE DATOS
 ========================================================= */
 
-async function loadDashboardData(options = {}) {
-  const { forceToast = false } = options;
-
+async function loadDashboardData({ forceToast = false } = {}) {
   try {
     setDashboardLoading(true);
+
+    const read = (collectionName, max = 250, orderField = "createdAt", direction = "desc") => {
+      return fetchCollection(collectionName, { max, orderField, direction });
+    };
 
     const [
       users,
       adminProfiles,
+
       drivers,
+      driverVehicles,
+      driverWallets,
+      driverWalletTransactions,
+      driverTopupSessions,
+      driverOffers,
+
+      commerceUsers,
       commerce,
+      commerceProducts,
+      commerceProductCategories,
+      commerceChats,
+      orderDrafts,
+
       agents,
+      agentSales,
+
       serviceZones,
-      rideTypes,
-      adminActions,
-      notifications,
+      fareConfigs,
+      platformConfigs,
+
       deliveryOrders,
       rideRequests,
-      incidents,
+      packageOrders,
+
+      notifications,
+      supportTickets,
+      safetyReports,
+
       sanctions,
-      walletLedger,
+      driverPolicyEvents,
+      auditLogs,
+      adminActions,
+
       cashSettlements,
-      driverLocations,
-      activeUserLocations,
-      appSettings,
     ] = await Promise.all([
-      fetchCollection(COLLECTIONS.users, { max: DEFAULT_LIMITS.users, orderField: "createdAt" }),
-      fetchCollection(COLLECTIONS.adminProfiles, { max: 300, orderField: "createdAt" }),
-      fetchCollection(COLLECTIONS.driverProfiles, { max: DEFAULT_LIMITS.drivers, orderField: "createdAt" }),
-      fetchCollection(COLLECTIONS.commerceProfiles, { max: DEFAULT_LIMITS.commerce, orderField: "createdAt" }),
-      fetchCollection(COLLECTIONS.agentProfiles, { max: DEFAULT_LIMITS.agents, orderField: "createdAt" }),
-      fetchCollection(COLLECTIONS.serviceZones, { max: DEFAULT_LIMITS.zones, orderField: "createdAt" }),
-      fetchCollection(COLLECTIONS.rideTypes, { max: DEFAULT_LIMITS.rideTypes, orderField: "sortOrder", direction: "asc" }),
-      fetchCollection(COLLECTIONS.adminActions, { max: DEFAULT_LIMITS.audit, orderField: "createdAt" }),
-      fetchCollection(COLLECTIONS.notifications, { max: DEFAULT_LIMITS.notifications, orderField: "createdAt" }),
-      fetchCollection(COLLECTIONS.deliveryOrders, { max: DEFAULT_LIMITS.deliveryOrders, orderField: "createdAt" }),
-      fetchCollection(COLLECTIONS.rideRequests, { max: DEFAULT_LIMITS.rideRequests, orderField: "createdAt" }),
-      fetchCollection(COLLECTIONS.incidents, { max: DEFAULT_LIMITS.incidents, orderField: "createdAt" }),
-      fetchCollection(COLLECTIONS.sanctions, { max: DEFAULT_LIMITS.sanctions, orderField: "createdAt" }),
-      fetchCollection(COLLECTIONS.walletLedger, { max: DEFAULT_LIMITS.walletLedger, orderField: "createdAt" }),
-      fetchCollection(COLLECTIONS.cashSettlements, { max: DEFAULT_LIMITS.cashSettlements, orderField: "createdAt" }),
-      fetchCollection(COLLECTIONS.driverLocations, { max: DEFAULT_LIMITS.locations, orderField: "updatedAt" }),
-      fetchCollection(COLLECTIONS.activeUserLocations, { max: DEFAULT_LIMITS.locations, orderField: "updatedAt" }),
-      fetchCollection(COLLECTIONS.appSettings, { max: 100, orderField: "updatedAt" }),
+      read(COLLECTIONS.users, 750),
+      read(COLLECTIONS.adminProfiles, 300),
+
+      read(COLLECTIONS.driverProfiles, 750),
+      read(COLLECTIONS.driverVehicles, 750),
+      read(COLLECTIONS.driverWallets, 750, "updatedAt"),
+      read(COLLECTIONS.driverWalletTransactions, 500),
+      read(COLLECTIONS.driverTopupSessions, 250),
+      read(COLLECTIONS.driverOffers, 250),
+
+      read(COLLECTIONS.commerceUsers, 750),
+      read(COLLECTIONS.commerceProfiles, 750),
+      read(COLLECTIONS.commerceProducts, 500),
+      read(COLLECTIONS.commerceProductCategories, 500),
+      read(COLLECTIONS.commerceChats, 250, "updatedAt"),
+      read(COLLECTIONS.orderDrafts, 250),
+
+      read(COLLECTIONS.agentProfiles, 500),
+      read(COLLECTIONS.agentSales, 250),
+
+      read(COLLECTIONS.serviceZones, 250),
+      read(COLLECTIONS.fareConfigs, 250),
+      read(COLLECTIONS.platformConfigs, 100, "updatedAt"),
+
+      read(COLLECTIONS.deliveryOrders, 350),
+      read(COLLECTIONS.rideRequests, 350),
+      read(COLLECTIONS.packageOrders, 250),
+
+      read(COLLECTIONS.notifications, 250),
+      read(COLLECTIONS.supportTickets, 250),
+      read(COLLECTIONS.safetyReports, 250),
+
+      read(COLLECTIONS.driverSanctions, 250),
+      read(COLLECTIONS.driverPolicyEvents, 250),
+      read(COLLECTIONS.auditLogs, 250),
+      read(COLLECTIONS.adminActions, 250),
+
+      read(COLLECTIONS.cashSettlements, 250),
     ]);
 
-    state.users = users;
-    state.adminProfiles = adminProfiles;
-    state.drivers = drivers;
-    state.commerce = commerce;
-    state.agents = agents;
-    state.serviceZones = serviceZones;
-    state.rideTypes = rideTypes;
-    state.adminActions = adminActions;
-    state.notifications = notifications;
-    state.deliveryOrders = deliveryOrders;
-    state.rideRequests = rideRequests;
-    state.incidents = incidents;
-    state.sanctions = sanctions;
-    state.walletLedger = walletLedger;
-    state.cashSettlements = cashSettlements;
-    state.driverLocations = driverLocations;
-    state.activeUserLocations = activeUserLocations;
-    state.appSettings = appSettings;
+    Object.assign(state, {
+      users,
+      adminProfiles,
+
+      drivers,
+      driverVehicles,
+      driverWallets,
+      driverWalletTransactions,
+      driverTopupSessions,
+      driverOffers,
+
+      commerceUsers,
+      commerce,
+      commerceProducts,
+      commerceProductCategories,
+      commerceChats,
+      orderDrafts,
+
+      agents,
+      agentSales,
+
+      serviceZones,
+      fareConfigs,
+      platformConfigs,
+
+      deliveryOrders,
+      rideRequests,
+      packageOrders,
+
+      notifications,
+      supportTickets,
+      safetyReports,
+
+      sanctions,
+      driverPolicyEvents,
+      auditLogs,
+      adminActions,
+
+      cashSettlements,
+    });
+
+    state.rideTypes = buildRideTypesFromFareConfigs(state.fareConfigs, state.serviceZones);
 
     rebuildIndexes();
     populateZoneFilters();
@@ -779,28 +781,21 @@ async function loadDashboardData(options = {}) {
   }
 }
 
-async function fetchCollection(collectionName, config = {}) {
-  const {
-    max = 250,
-    orderField = "createdAt",
-    direction = "desc",
-  } = config;
-
+async function fetchCollection(collectionName, { max = 250, orderField = "createdAt", direction = "desc" } = {}) {
   const colRef = collection(state.db, collectionName);
 
   try {
-    const q = query(colRef, orderBy(orderField, direction), limit(max));
-    const snapshot = await getDocs(q);
+    const snap = await getDocs(
+      query(colRef, orderBy(orderField, direction), limit(max))
+    );
 
-    return snapshot.docs.map((documentSnapshot) => normalizeDoc(documentSnapshot));
+    return snap.docs.map(normalizeDoc);
   } catch (error) {
     console.warn(`[NIVO Dashboard] Fallback leyendo ${collectionName}:`, error);
 
     try {
-      const q = query(colRef, limit(max));
-      const snapshot = await getDocs(q);
-
-      return snapshot.docs.map((documentSnapshot) => normalizeDoc(documentSnapshot));
+      const snap = await getDocs(query(colRef, limit(max)));
+      return snap.docs.map(normalizeDoc);
     } catch (fallbackError) {
       console.warn(`[NIVO Dashboard] Sin acceso o sin datos en ${collectionName}:`, fallbackError);
       return [];
@@ -811,34 +806,81 @@ async function fetchCollection(collectionName, config = {}) {
 async function fetchDocument(collectionName, id) {
   if (!id) return null;
 
-  const ref = doc(state.db, collectionName, id);
-  const snap = await getDoc(ref);
+  const snap = await getDoc(doc(state.db, collectionName, id));
 
   if (!snap.exists()) return null;
 
   return normalizeDoc(snap);
 }
 
-function normalizeDoc(documentSnapshot) {
+function normalizeDoc(snap) {
   return {
-    id: documentSnapshot.id,
-    ref: documentSnapshot.ref,
-    ...documentSnapshot.data(),
+    id: snap.id,
+    ref: snap.ref,
+    ...snap.data(),
   };
 }
 
 function rebuildIndexes() {
-  state.indexes.usersById = toIndex(state.users);
-  state.indexes.driversById = toIndex(state.drivers);
-  state.indexes.commerceById = toIndex(state.commerce);
-  state.indexes.agentsById = toIndex(state.agents);
-  state.indexes.adminsById = toIndex(state.adminProfiles);
-  state.indexes.zonesById = toIndex(state.serviceZones);
-  state.indexes.rideTypesById = toIndex(state.rideTypes);
+  state.indexes = {
+    usersById: toIndex(state.users),
+    adminsById: toIndex(state.adminProfiles),
+
+    driversById: toIndex(state.drivers),
+    driverVehiclesById: toIndex(state.driverVehicles),
+    driverVehiclesByDriverId: groupBy(state.driverVehicles, (vehicle) => {
+      return vehicle.driverId || vehicle.uid || "";
+    }),
+    driverWalletsById: toIndex(state.driverWallets),
+
+    commerceUsersById: toIndex(state.commerceUsers),
+    commerceUsersByCommerceId: toIndexBy(state.commerceUsers, (user) => {
+      return user.commerceId || "";
+    }),
+    commerceById: toIndex(state.commerce),
+
+    agentsById: toIndex(state.agents),
+
+    zonesById: toIndex(state.serviceZones),
+    fareConfigsById: toIndex(state.fareConfigs),
+    rideTypesById: toIndex(state.rideTypes),
+  };
 }
 
 function toIndex(items) {
   return new Map(items.map((item) => [item.id, item]));
+}
+
+function toIndexBy(items, keyFn) {
+  const map = new Map();
+
+  items.forEach((item) => {
+    const key = keyFn(item);
+
+    if (key) {
+      map.set(key, item);
+    }
+  });
+
+  return map;
+}
+
+function groupBy(items, keyFn) {
+  const map = new Map();
+
+  items.forEach((item) => {
+    const key = keyFn(item);
+
+    if (!key) return;
+
+    if (!map.has(key)) {
+      map.set(key, []);
+    }
+
+    map.get(key).push(item);
+  });
+
+  return map;
 }
 
 /* =========================================================
@@ -852,17 +894,23 @@ function renderAll() {
   renderUsersTable();
   renderDriversTable();
   renderDriverReview();
+
   renderCommerceTable();
   renderCommerceReview();
+
   renderAgentsTable();
+
   renderZonesTable();
   renderRideTypesTable();
   renderPricing();
+
   renderDeliveryTable();
   renderRidesTable();
   renderLocations();
+
   renderWalletLedgerTable();
   renderCashSettlementsTable();
+
   renderIncidentsTable();
   renderSanctionsTable();
   renderNotificationsTable();
@@ -871,210 +919,147 @@ function renderAll() {
 }
 
 function renderCurrentSection() {
-  switch (state.currentSection) {
-    case "users":
-      renderUsersTable();
-      break;
-    case "drivers":
-      renderDriversTable();
-      break;
-    case "driver-review":
-      renderDriverReview();
-      break;
-    case "commerce":
-      renderCommerceTable();
-      break;
-    case "commerce-review":
-      renderCommerceReview();
-      break;
-    case "agents":
-      renderAgentsTable();
-      break;
-    case "zones":
-      renderZonesTable();
-      break;
-    case "ride-types":
-      renderRideTypesTable();
-      break;
-    case "audit":
-      renderAuditTable();
-      break;
-    default:
-      renderAll();
-      break;
-  }
+  const renderers = {
+    overview: () => {
+      renderMetrics();
+      renderOverviewPanels();
+    },
+    users: renderUsersTable,
+    drivers: renderDriversTable,
+    "driver-review": renderDriverReview,
+    commerce: renderCommerceTable,
+    "commerce-review": renderCommerceReview,
+    agents: renderAgentsTable,
+    zones: renderZonesTable,
+    "ride-types": renderRideTypesTable,
+    pricing: renderPricing,
+    delivery: renderDeliveryTable,
+    rides: renderRidesTable,
+    locations: renderLocations,
+    wallet: renderWalletLedgerTable,
+    "cash-settlements": renderCashSettlementsTable,
+    support: renderIncidentsTable,
+    sanctions: renderSanctionsTable,
+    notifications: renderNotificationsTable,
+    audit: renderAuditTable,
+    settings: renderSettings,
+  };
+
+  const renderer = renderers[state.currentSection] || renderAll;
+  renderer();
 }
 
 function renderMetrics() {
-  const activeUsers = state.users.filter((item) => item.status === "active");
-  const registeredClients = state.users.filter((item) => item.role === "user");
+  const activeUsers = state.users.filter((user) => user.status === "active");
+  const activeDrivers = state.drivers.filter(isDriverApproved);
+  const pendingDrivers = state.drivers.filter((driver) => DRIVER_REVIEW_STATUSES.has(driver.status));
+  const activeCommerce = state.commerce.filter(isCommerceActive);
+  const pendingCommerce = state.commerce.filter(isCommercePending);
 
-  const activeDrivers = state.drivers.filter((item) => item.status === "active");
-  const pendingDrivers = state.drivers.filter((item) => DRIVER_REVIEW_STATUSES.has(item.status));
+  setText("metricTotalUsers", state.users.length);
+  setText("metricActiveUsers", activeUsers.length);
 
-  const activeCommerce = state.commerce.filter((item) => item.status === "active");
-  const pendingCommerce = state.commerce.filter((item) => COMMERCE_REVIEW_STATUSES.has(item.status));
+  setText("metricTotalDrivers", state.drivers.length);
+  setText("metricActiveDrivers", activeDrivers.length);
+  setText("metricPendingDrivers", pendingDrivers.length);
 
-  const activeZones = state.serviceZones.filter((item) => item.active === true);
+  setText("metricTotalCommerce", state.commerce.length);
+  setText("metricActiveCommerce", activeCommerce.length);
 
-  const driversCar = state.drivers.filter((item) => normalizeVehicleType(item.vehicleType) === "car");
-  const driversMotorcycle = state.drivers.filter((item) => normalizeVehicleType(item.vehicleType) === "motorcycle");
-  const driversMototaxi = state.drivers.filter((item) => normalizeVehicleType(item.vehicleType) === "mototaxi");
-  const driversQute = state.drivers.filter((item) => normalizeVehicleType(item.vehicleType) === "qute");
-  const driversDelivery = state.drivers.filter((item) => get(item, "enabledServices.delivery", false) === true);
-  const driversAvailable = state.drivers.filter((item) => get(item, "availability.isAvailable", false) === true);
+  setText("metricTotalAgents", state.agents.length);
+  setText("metricServiceZones", state.serviceZones.filter((zone) => zone.active === true).length);
 
-  setText("metricTotalUsers", String(state.users.length));
-  setText("metricActiveUsers", String(activeUsers.length));
-  setText("metricTotalDrivers", String(state.drivers.length));
-  setText("metricActiveDrivers", String(activeDrivers.length));
-  setText("metricPendingDrivers", String(pendingDrivers.length));
-  setText("metricTotalCommerce", String(state.commerce.length));
-  setText("metricActiveCommerce", String(activeCommerce.length));
-  setText("metricTotalAgents", String(state.agents.length));
-  setText("metricServiceZones", String(activeZones.length));
-  setText("metricRideRequests", String(state.rideRequests.length));
-  setText("metricDeliveryOrders", String(state.deliveryOrders.length));
-  setText("metricWalletVolume", formatMoney(sumBy(state.walletLedger, "amount")));
+  setText("metricRideRequests", state.rideRequests.length);
+  setText("metricDeliveryOrders", state.deliveryOrders.length);
 
-  setText("metricDriversCar", String(driversCar.length));
-  setText("metricDriversMotorcycle", String(driversMotorcycle.length));
-  setText("metricDriversMototaxi", String(driversMototaxi.length));
-  setText("metricDriversQute", String(driversQute.length));
-  setText("metricDriversDelivery", String(driversDelivery.length));
-  setText("metricDriversAvailable", String(driversAvailable.length));
+  setText("metricWalletVolume", money(sumBy(state.driverWalletTransactions, "amount")));
 
-  setText("navPendingDriversCount", String(pendingDrivers.length));
-  setText("navPendingCommerceCount", String(pendingCommerce.length));
+  setText("metricDriversCar", state.drivers.filter((driver) => normalizeVehicleType(driver.vehicleType) === "car").length);
+  setText("metricDriversMotorcycle", state.drivers.filter((driver) => normalizeVehicleType(driver.vehicleType) === "motorcycle").length);
+  setText("metricDriversMototaxi", state.drivers.filter((driver) => normalizeVehicleType(driver.vehicleType) === "mototaxi").length);
+  setText("metricDriversQute", state.drivers.filter((driver) => normalizeVehicleType(driver.vehicleType) === "qute").length);
+  setText("metricDriversDelivery", state.drivers.filter((driver) => get(driver, "enabledServices.delivery") === true).length);
+  setText("metricDriversAvailable", state.drivers.filter((driver) => get(driver, "availability.isOnline") === true || get(driver, "availability.isAvailable") === true).length);
 
-  setText("driversCountAll", String(state.drivers.length));
-  setText("driversCountActive", String(activeDrivers.length));
-  setText("driversCountOnline", String(state.drivers.filter((item) => get(item, "availability.isOnline", false) === true).length));
-  setText("driversCountReview", String(state.drivers.filter((item) => item.status === "pending_review").length));
-  setText("driversCountBlocked", String(state.drivers.filter((item) => item.status === "blocked").length));
+  setText("navPendingDriversCount", pendingDrivers.length);
+  setText("navPendingCommerceCount", pendingCommerce.length);
 
-  const notificationUnread = state.notifications.filter((item) => item.read === false).length;
-  const badge = $("#notificationBadge");
-  if (badge) {
-    badge.textContent = String(notificationUnread);
-    badge.hidden = notificationUnread <= 0;
-  }
+  setText("driversCountAll", state.drivers.length);
+  setText("driversCountActive", activeDrivers.length);
+  setText("driversCountOnline", state.drivers.filter((driver) => get(driver, "availability.isOnline") === true).length);
+  setText("driversCountReview", pendingDrivers.length);
+  setText("driversCountBlocked", state.drivers.filter((driver) => BLOCKED_STATUSES.has(driver.status)).length);
 
-  setText("metricUsersTrend", `${registeredClients.length} clientes con role user`);
+  setNotificationBadge();
 }
 
 function renderOverviewPanels() {
-  renderCriticalAlerts();
-  renderRecentAdminActions();
-}
-
-function renderCriticalAlerts() {
   const alerts = [];
 
-  const driversPendingReview = state.drivers.filter((item) => item.status === "pending_review");
-  const commercePendingReview = state.commerce.filter((item) => item.status === "pending_review");
-  const blockedUsers = state.users.filter((item) => BLOCKED_STATUSES.has(item.status));
-  const cashPending = state.cashSettlements.filter((item) => item.status === "pending" || item.cashStatus === "overdue");
+  const pendingDrivers = state.drivers.filter((driver) => driver.status === DRIVER_STATUSES.pendingReview);
+  const pendingCommerce = state.commerce.filter(isCommercePending);
+  const lowBalanceDrivers = state.drivers.filter((driver) => {
+    const wallet = driverWallet(driver.driverId || driver.uid || driver.id);
+    const balance = walletBalance(wallet, get(driver, "wallet.balance", 0));
+    const minimum = Number(get(wallet, "rules.minimumBalanceRequired", get(driver, "wallet.minimumBalanceRequired", MINIMUM_DRIVER_BALANCE))) || MINIMUM_DRIVER_BALANCE;
 
-  if (driversPendingReview.length) {
-    alerts.push({
-      title: "Conductores listos para revisión",
-      body: `${driversPendingReview.length} conductor(es) esperan aprobación administrativa.`,
-      type: "warning",
-    });
-  }
-
-  if (commercePendingReview.length) {
-    alerts.push({
-      title: "Comercios listos para revisión",
-      body: `${commercePendingReview.length} comercio(s) esperan aprobación administrativa.`,
-      type: "warning",
-    });
-  }
-
-  if (blockedUsers.length) {
-    alerts.push({
-      title: "Cuentas bloqueadas o restringidas",
-      body: `${blockedUsers.length} cuenta(s) tienen estado restrictivo.`,
-      type: "danger",
-    });
-  }
-
-  if (cashPending.length) {
-    alerts.push({
-      title: "Liquidaciones pendientes",
-      body: `${cashPending.length} liquidación(es) requieren seguimiento.`,
-      type: "warning",
-    });
-  }
-
-  const html = alerts.length
-    ? alerts.map((alert) => `
-        <div class="review-card">
-          <strong>${escapeHtml(alert.title)}</strong>
-          <span>${escapeHtml(alert.body)}</span>
-        </div>
-      `).join("")
-    : `<div class="empty-inline">No hay alertas críticas cargadas todavía.</div>`;
-
-  setHTML("criticalAlertsList", html);
-}
-
-function renderRecentAdminActions() {
-  const latest = state.adminActions.slice(0, 8);
-
-  const html = latest.length
-    ? latest.map((action) => `
-        <div class="review-card">
-          <strong>${escapeHtml(action.action || "Acción administrativa")}</strong>
-          <span>${escapeHtml(action.adminEmail || "admin")} · ${escapeHtml(action.targetCollection || "")}/${escapeHtml(action.targetId || "")}</span>
-          <span>${formatDate(action.createdAt)}</span>
-        </div>
-      `).join("")
-    : `<div class="empty-inline">Todavía no hay acciones administrativas registradas.</div>`;
-
-  setHTML("recentAdminActions", html);
-}
-
-/* =========================================================
-   SECCIONES
-========================================================= */
-
-function showSection(sectionName) {
-  const safeSection = SECTION_META[sectionName] ? sectionName : "overview";
-
-  state.currentSection = safeSection;
-
-  $$(".dashboard-section").forEach((section) => {
-    const active = section.dataset.section === safeSection;
-    section.classList.toggle("active", active);
-    section.hidden = !active;
+    return isDriverApproved(driver) && balance < minimum;
   });
 
-  $$(".nav-item").forEach((item) => {
-    item.classList.toggle("active", item.dataset.sectionTarget === safeSection);
-  });
+  if (pendingDrivers.length) {
+    alerts.push({
+      title: "Conductores pendientes",
+      body: `${pendingDrivers.length} conductor(es) listos para revisión administrativa.`,
+      target: "driver-review",
+    });
+  }
 
-  const meta = SECTION_META[safeSection];
-  setText("dashboardPageTitle", meta.title);
-  setText("dashboardBreadcrumb", meta.breadcrumb);
+  if (pendingCommerce.length) {
+    alerts.push({
+      title: "Comercios pendientes",
+      body: `${pendingCommerce.length} comercio(s) requieren aprobación o corrección.`,
+      target: "commerce-review",
+    });
+  }
 
-  document.body.classList.remove("sidebar-open", "is-locked");
+  if (lowBalanceDrivers.length) {
+    alerts.push({
+      title: "Saldo bajo en conductores",
+      body: `${lowBalanceDrivers.length} conductor(es) aprobados tienen saldo por debajo del mínimo.`,
+      target: "wallet",
+    });
+  }
 
-  const main = $("#dashboardMain");
-  if (main) main.focus({ preventScroll: true });
+  const alertsList = $("#criticalAlertsList");
 
-  renderCurrentSection();
-}
+  if (alertsList) {
+    alertsList.innerHTML = alerts.length
+      ? alerts.map((alert) => `
+          <button class="alert-item" type="button" data-section-target="${e(alert.target)}">
+            <strong>${e(alert.title)}</strong>
+            <span>${e(alert.body)}</span>
+          </button>
+        `).join("")
+      : `<div class="empty-inline">No hay alertas críticas cargadas todavía.</div>`;
+  }
 
-function setDriverQuickFilter(filter) {
-  state.currentDriverQuickFilter = filter || "all";
+  const activity = [...state.adminActions, ...state.auditLogs]
+    .sort((a, b) => ms(b.createdAt) - ms(a.createdAt))
+    .slice(0, 8);
 
-  $$("[data-driver-filter]").forEach((button) => {
-    button.classList.toggle("active", button.dataset.driverFilter === state.currentDriverQuickFilter);
-  });
+  const feed = $("#recentAdminActions");
 
-  renderDriversTable();
+  if (feed) {
+    feed.innerHTML = activity.length
+      ? activity.map((item) => `
+          <div class="activity-item">
+            <strong>${e(item.action || "Acción administrativa")}</strong>
+            <span>${e(item.adminEmail || item.adminId || "Admin NIVO")} · ${date(item.createdAt)}</span>
+            <small>${e(item.reason || item.targetId || "")}</small>
+          </div>
+        `).join("")
+      : `<div class="empty-inline">Todavía no hay acciones administrativas registradas.</div>`;
+  }
 }
 
 /* =========================================================
@@ -1085,79 +1070,61 @@ function renderUsersTable() {
   const tbody = $("#usersTableBody");
   if (!tbody) return;
 
-  const search = normalizeText($("#usersSearchInput")?.value || $("#globalSearch")?.value || "").toLowerCase();
+  const search = lower($("#usersSearchInput")?.value);
   const role = $("#usersRoleFilter")?.value || "all";
   const status = $("#usersStatusFilter")?.value || "all";
   const zone = $("#usersZoneFilter")?.value || "all";
 
   let items = [...state.users];
 
-  if (role !== "all") items = items.filter((item) => item.role === role);
-  if (status !== "all") items = items.filter((item) => item.status === status);
-  if (zone !== "all") items = items.filter((item) => item.registeredZoneId === zone);
-
   if (search) {
-    items = items.filter((item) => searchable(item, [
-      "fullName",
-      "email",
-      "phone",
-      "role",
-      "status",
-      "department",
-      "municipality",
-      "registeredZoneId",
-      "uid",
-      "id",
-    ]).includes(search));
+    items = items.filter((user) => {
+      return searchable(user, ["fullName", "email", "phone", "uid", "role"]).includes(search);
+    });
+  }
+
+  if (role !== "all") {
+    items = items.filter((user) => (user.role || "user") === role);
+  }
+
+  if (status !== "all") {
+    items = items.filter((user) => (user.status || "active") === status);
+  }
+
+  if (zone !== "all") {
+    items = items.filter((user) => userZone(user) === zone);
   }
 
   setText("usersTableCount", `${items.length} registro${items.length === 1 ? "" : "s"}`);
 
   if (!items.length) {
-    tbody.innerHTML = emptyTableRow(7, "No hay usuarios con esos filtros.");
+    tbody.innerHTML = emptyRow(7, "No hay usuarios para mostrar.");
     return;
   }
 
-  tbody.innerHTML = items.map((user) => {
-    const adminExists = state.indexes.adminsById.has(user.id);
-    const canReactivate = BLOCKED_STATUSES.has(user.status);
-
-    return `
-      <tr>
-        <td>
-          ${profileCell({
-            name: user.fullName || user.displayName || "Usuario NIVO",
-            subtitle: user.email || user.phone || user.id,
-            imageUrl: user.photoUrl,
-          })}
-        </td>
-        <td>${badge(ROLE_LABELS[user.role] || user.role || "user", "vehicle-badge")}</td>
-        <td>${statusBadge(user.status)}</td>
-        <td>${escapeHtml(formatZone(user.registeredZoneId, user.department, user.municipality))}</td>
-        <td>${formatDate(user.createdAt)}</td>
-        <td>${formatDate(user.lastLoginAt)}</td>
-        <td class="table-actions-col">
-          <div class="table-actions">
-            <button class="btn btn-secondary" type="button" data-action="open-user-detail" data-id="${escapeAttr(user.id)}">
-              Ver
-            </button>
-            ${
-              adminExists
-                ? `<span class="status-badge active">Admin</span>`
-                : `<button class="btn btn-primary" type="button" data-action="make-admin" data-id="${escapeAttr(user.id)}">
-                    Hacer admin
-                  </button>`
-            }
-            ${
-              canReactivate
-                ? `<button class="btn btn-secondary" type="button" data-action="reactivate-user" data-id="${escapeAttr(user.id)}">Reactivar</button>`
-                : `<button class="btn btn-danger" type="button" data-action="block-user" data-id="${escapeAttr(user.id)}">Bloquear</button>`
-            }
+  tbody.innerHTML = items.map((user) => `
+    <tr>
+      <td>
+        <div class="person-cell">
+          ${avatar(user.fullName || user.email)}
+          <div>
+            <strong>${e(user.fullName || "Usuario NIVO")}</strong>
+            <span>${e(user.email || "Sin correo")}</span>
+            <small>${e(user.phone || user.uid || "")}</small>
           </div>
-        </td>
-      </tr>
-    `;
-  }).join("");
+        </div>
+      </td>
+      <td>${pill(ROLE_LABELS[user.role] || user.role || "Usuario", "neutral")}</td>
+      <td>${statusPill(user.status || "active")}</td>
+      <td>${e(formatZone(userZone(user), user.department, user.municipality))}</td>
+      <td>${date(user.createdAt)}</td>
+      <td>${date(user.lastLoginAt)}</td>
+      <td class="table-actions">
+        <button class="text-btn" type="button" data-action="open-user-detail" data-id="${ea(user.id)}">Ver</button>
+        <button class="text-btn" type="button" data-action="make-admin" data-id="${ea(user.id)}">Admin</button>
+      </td>
+    </tr>
+  `).join("");
 }
 
 /* =========================================================
@@ -1168,171 +1135,165 @@ function renderDriversTable() {
   const tbody = $("#driversTableBody");
   if (!tbody) return;
 
-  const search = normalizeText($("#driversSearchInput")?.value || $("#globalSearch")?.value || "").toLowerCase();
+  const search = lower($("#driversSearchInput")?.value);
   const vehicle = $("#driversVehicleFilter")?.value || "all";
   const service = $("#driversServiceFilter")?.value || "all";
   const zone = $("#driversZoneFilter")?.value || "all";
-  const quick = state.currentDriverQuickFilter;
 
   let items = [...state.drivers];
 
-  if (quick === "active") items = items.filter((item) => item.status === "active");
-  if (quick === "online") items = items.filter((item) => get(item, "availability.isOnline", false) === true);
-  if (quick === "pending_review") items = items.filter((item) => item.status === "pending_review");
-  if (quick === "blocked") items = items.filter((item) => item.status === "blocked");
+  if (state.currentDriverQuickFilter !== "all") {
+    const filter = state.currentDriverQuickFilter;
 
-  if (vehicle !== "all") items = items.filter((item) => normalizeVehicleType(item.vehicleType) === vehicle);
-  if (service !== "all") items = items.filter((item) => get(item, `enabledServices.${service}`, false) === true);
-  if (zone !== "all") items = items.filter((item) => item.serviceZoneId === zone);
+    items = items.filter((driver) => {
+      if (filter === "active") return isDriverApproved(driver);
+      if (filter === "online") return get(driver, "availability.isOnline") === true;
+      if (filter === "pending_review") return DRIVER_REVIEW_STATUSES.has(driver.status);
+      if (filter === "blocked") return BLOCKED_STATUSES.has(driver.status);
+      return true;
+    });
+  }
 
   if (search) {
-    items = items.filter((item) => searchable(item, [
-      "fullName",
-      "email",
-      "phone",
-      "vehicleType",
-      "vehicleLabel",
-      "serviceZoneId",
-      "department",
-      "municipality",
-      "driverId",
-      "uid",
-      "documentNumbers.plate",
-      "documentNumbers.duiNumber",
-      "documentNumbers.licenseNumber",
-    ]).includes(search));
+    items = items.filter((driver) => {
+      const vehicleDoc = primaryVehicle(driver);
+
+      return [
+        searchable(driver, ["fullName", "email", "phone", "driverId", "uid", "vehicleType", "vehicleLabel"]),
+        searchable(vehicleDoc || {}, ["plate", "brand", "model", "color", "vehicleLabel"]),
+      ].join(" ").toLowerCase().includes(search);
+    });
+  }
+
+  if (vehicle !== "all") {
+    items = items.filter((driver) => normalizeVehicleType(driver.vehicleType) === vehicle);
+  }
+
+  if (service !== "all") {
+    items = items.filter((driver) => get(driver, `enabledServices.${service}`) === true);
+  }
+
+  if (zone !== "all") {
+    items = items.filter((driver) => driver.serviceZoneId === zone);
   }
 
   setText("driversTableCount", `${items.length} registro${items.length === 1 ? "" : "s"}`);
 
   if (!items.length) {
-    tbody.innerHTML = emptyTableRow(8, "No hay conductores con esos filtros.");
+    tbody.innerHTML = emptyRow(8, "No hay conductores para mostrar.");
     return;
   }
 
-  tbody.innerHTML = items.map((driver) => `
-    <tr>
-      <td>
-        ${profileCell({
-          name: driver.fullName || "Conductor NIVO",
-          subtitle: driver.email || driver.phone || driver.id,
-          imageUrl: driver.photoUrl || get(driver, "documents.selfieUrl"),
-        })}
-      </td>
-      <td>${badge(vehicleLabel(driver.vehicleType), "vehicle-badge")}</td>
-      <td>${servicesBadges(driver.enabledServices)}</td>
-      <td>${statusBadge(driver.status)}</td>
-      <td>${availabilityBadge(driver.availability)}</td>
-      <td>${escapeHtml(formatZone(driver.serviceZoneId, driver.department, driver.municipality))}</td>
-      <td>${escapeHtml(String(get(driver, "metrics.rating", 0)))}</td>
-      <td class="table-actions-col">
-        <div class="table-actions">
-          <button class="btn btn-secondary" type="button" data-action="open-driver-detail" data-id="${escapeAttr(driver.id)}">
-            Ver
-          </button>
-          <button
-            class="btn btn-primary"
-            type="button"
-            data-action="open-review-modal"
-            data-id="${escapeAttr(driver.id)}"
-            data-collection="${COLLECTIONS.driverProfiles}"
-            data-role="driver"
-            data-decision="approve"
-          >
-            Decidir
-          </button>
-        </div>
-      </td>
-    </tr>
-  `).join("");
+  tbody.innerHTML = items.map((driver) => {
+    const id = driver.driverId || driver.uid || driver.id;
+    const vehicleDoc = primaryVehicle(driver);
+    const wallet = driverWallet(id);
+
+    return `
+      <tr>
+        <td>
+          <div class="person-cell">
+            ${avatar(driver.fullName || driver.email)}
+            <div>
+              <strong>${e(driver.fullName || "Conductor NIVO")}</strong>
+              <span>${e(driver.email || "Sin correo")}</span>
+              <small>${e(driver.phone || id)}</small>
+            </div>
+          </div>
+        </td>
+        <td>
+          <strong>${e(driver.vehicleLabel || vehicleLabel(driver.vehicleType))}</strong>
+          <span>${e(vehicleDoc?.plate || get(driver, "documentNumbers.plate", ""))}</span>
+        </td>
+        <td>${servicesBadges(driver.enabledServices)}</td>
+        <td>${statusPill(driver.status || "pending_documents")}</td>
+        <td>
+          ${get(driver, "availability.isOnline") === true ? pill("Online", "success") : pill("Offline", "neutral")}
+          <small>${wallet ? `Saldo ${money(walletBalance(wallet))}` : "Wallet pendiente"}</small>
+        </td>
+        <td>${e(formatZone(driver.serviceZoneId, driver.department, driver.municipality))}</td>
+        <td>${e(driverRating(driver))}</td>
+        <td class="table-actions">
+          <button class="text-btn" type="button" data-action="open-driver-detail" data-id="${ea(driver.id)}">Ver</button>
+          ${driver.status === DRIVER_STATUSES.pendingReview ? `
+            <button class="text-btn primary" type="button" data-action="open-review-modal" data-id="${ea(driver.id)}" data-collection="${COLLECTIONS.driverProfiles}" data-role="driver" data-decision="approve">Aprobar</button>
+          ` : ""}
+        </td>
+      </tr>
+    `;
+  }).join("");
 }
 
 function renderDriverReview() {
-  renderDriverReviewColumns();
-  renderDriverReviewTable();
-}
+  const pendingDocuments = state.drivers.filter((driver) => driver.status === DRIVER_STATUSES.pendingDocuments);
+  const pendingReview = state.drivers.filter((driver) => driver.status === DRIVER_STATUSES.pendingReview);
+  const correctionRequired = state.drivers.filter((driver) => driver.status === DRIVER_STATUSES.correctionRequired);
 
-function renderDriverReviewColumns() {
-  const pendingDocuments = state.drivers.filter((item) => item.status === "pending_documents");
-  const pendingReview = state.drivers.filter((item) => item.status === "pending_review");
-  const correctionRequired = state.drivers.filter((item) => item.status === "correction_required");
+  setText("reviewPendingDocumentsCount", pendingDocuments.length);
+  setText("reviewPendingReviewCount", pendingReview.length);
+  setText("reviewCorrectionRequiredCount", correctionRequired.length);
 
-  setText("reviewPendingDocumentsCount", String(pendingDocuments.length));
-  setText("reviewPendingReviewCount", String(pendingReview.length));
-  setText("reviewCorrectionRequiredCount", String(correctionRequired.length));
+  renderDriverReviewList("reviewPendingDocumentsList", pendingDocuments);
+  renderDriverReviewList("reviewPendingReviewList", pendingReview);
+  renderDriverReviewList("reviewCorrectionRequiredList", correctionRequired);
 
-  setHTML("reviewPendingDocumentsList", renderReviewCards(pendingDocuments, "driver"));
-  setHTML("reviewPendingReviewList", renderReviewCards(pendingReview, "driver"));
-  setHTML("reviewCorrectionRequiredList", renderReviewCards(correctionRequired, "driver"));
-}
-
-function renderDriverReviewTable() {
   const tbody = $("#driverReviewTableBody");
   if (!tbody) return;
 
-  const items = state.drivers.filter((driver) => DRIVER_REVIEW_STATUSES.has(driver.status));
+  const items = [...pendingDocuments, ...pendingReview, ...correctionRequired];
 
   setText("driverReviewTableCount", `${items.length} registro${items.length === 1 ? "" : "s"}`);
 
   if (!items.length) {
-    tbody.innerHTML = emptyTableRow(6, "No hay conductores pendientes de decisión.");
+    tbody.innerHTML = emptyRow(6, "No hay conductores pendientes de decisión.");
     return;
   }
 
-  tbody.innerHTML = items.map((driver) => `
-    <tr>
-      <td>
-        ${profileCell({
-          name: driver.fullName || "Conductor NIVO",
-          subtitle: driver.email || driver.phone || driver.id,
-          imageUrl: driver.photoUrl || get(driver, "documents.selfieUrl"),
-        })}
-      </td>
-      <td>${badge(vehicleLabel(driver.vehicleType), "vehicle-badge")}</td>
-      <td>${documentsSummary(driver.documents)}</td>
-      <td>${statusBadge(driver.status)}</td>
-      <td>${formatDate(get(driver, "verification.documentsSubmittedAt") || driver.updatedAt)}</td>
-      <td class="table-actions-col">
-        <div class="table-actions">
-          <button class="btn btn-secondary" type="button" data-action="open-driver-detail" data-id="${escapeAttr(driver.id)}">
-            Ver
-          </button>
-          <button
-            class="btn btn-primary"
-            type="button"
-            data-action="open-review-modal"
-            data-id="${escapeAttr(driver.id)}"
-            data-collection="${COLLECTIONS.driverProfiles}"
-            data-role="driver"
-            data-decision="approve"
-          >
-            Aprobar
-          </button>
-          <button
-            class="btn btn-warning"
-            type="button"
-            data-action="open-review-modal"
-            data-id="${escapeAttr(driver.id)}"
-            data-collection="${COLLECTIONS.driverProfiles}"
-            data-role="driver"
-            data-decision="correction_required"
-          >
-            Corrección
-          </button>
-          <button
-            class="btn btn-danger"
-            type="button"
-            data-action="open-review-modal"
-            data-id="${escapeAttr(driver.id)}"
-            data-collection="${COLLECTIONS.driverProfiles}"
-            data-role="driver"
-            data-decision="reject"
-          >
-            Rechazar
-          </button>
-        </div>
-      </td>
-    </tr>
+  tbody.innerHTML = items.map((driver) => {
+    const documents = driver.documents || {};
+    const verification = driver.verification || {};
+    const documentCount = countTruthy(documents);
+    const vehicleDoc = primaryVehicle(driver);
+
+    return `
+      <tr>
+        <td>
+          <strong>${e(driver.fullName || "Conductor NIVO")}</strong>
+          <span>${e(driver.email || "")}</span>
+        </td>
+        <td>
+          <strong>${e(driver.vehicleLabel || vehicleLabel(driver.vehicleType))}</strong>
+          <span>${e(vehicleDoc?.plate || get(driver, "documentNumbers.plate", ""))}</span>
+        </td>
+        <td>${documentCount}/10 archivos</td>
+        <td>${statusPill(driver.status || "pending_documents")}</td>
+        <td>${date(verification.documentsSubmittedAt || driver.updatedAt || driver.createdAt)}</td>
+        <td class="table-actions">
+          <button class="text-btn" type="button" data-action="open-driver-detail" data-id="${ea(driver.id)}">Ver</button>
+          <button class="text-btn primary" type="button" data-action="open-review-modal" data-id="${ea(driver.id)}" data-collection="${COLLECTIONS.driverProfiles}" data-role="driver" data-decision="approve">Aprobar</button>
+          <button class="text-btn" type="button" data-action="open-review-modal" data-id="${ea(driver.id)}" data-collection="${COLLECTIONS.driverProfiles}" data-role="driver" data-decision="correction_required">Corrección</button>
+        </td>
+      </tr>
+    `;
+  }).join("");
+}
+
+function renderDriverReviewList(containerId, items) {
+  const container = document.getElementById(containerId);
+  if (!container) return;
+
+  if (!items.length) {
+    container.innerHTML = `<div class="empty-state compact">Sin conductores en esta etapa.</div>`;
+    return;
+  }
+
+  container.innerHTML = items.slice(0, 8).map((driver) => `
+    <article class="review-card">
+      <strong>${e(driver.fullName || "Conductor NIVO")}</strong>
+      <span>${e(vehicleLabel(driver.vehicleType))} · ${e(formatZone(driver.serviceZoneId, driver.department, driver.municipality))}</span>
+      <small>${date(get(driver, "verification.documentsSubmittedAt") || driver.updatedAt || driver.createdAt)}</small>
+      <button class="text-btn" type="button" data-action="open-driver-detail" data-id="${ea(driver.id)}">Revisar</button>
+    </article>
   `).join("");
 }
 
@@ -1344,146 +1305,126 @@ function renderCommerceTable() {
   const tbody = $("#commerceTableBody");
   if (!tbody) return;
 
-  const search = normalizeText($("#commerceSearchInput")?.value || $("#globalSearch")?.value || "").toLowerCase();
+  const search = lower($("#commerceSearchInput")?.value);
   const status = $("#commerceStatusFilter")?.value || "all";
   const plan = $("#commercePlanFilter")?.value || "all";
   const zone = $("#commerceZoneFilter")?.value || "all";
 
   let items = [...state.commerce];
 
-  if (status !== "all") items = items.filter((item) => item.status === status);
-  if (plan !== "all") items = items.filter((item) => (item.plan || "none") === plan);
-  if (zone !== "all") items = items.filter((item) => item.serviceZoneId === zone);
-
   if (search) {
-    items = items.filter((item) => searchable(item, [
-      "businessName",
-      "ownerName",
-      "email",
-      "phone",
-      "categoryName",
-      "categoryId",
-      "serviceZoneId",
-      "department",
-      "municipality",
-      "commerceId",
-      "uid",
-    ]).includes(search));
+    items = items.filter((commerce) => {
+      const owner = commerceOwner(commerce);
+
+      return [
+        searchable(commerce, ["businessName", "legalName", "email", "phone", "commerceId", "category", "categoryId"]),
+        searchable(owner || {}, ["fullName", "email", "phone"]),
+      ].join(" ").toLowerCase().includes(search);
+    });
+  }
+
+  if (status !== "all") {
+    items = items.filter((commerce) => commerceStatus(commerce) === normalizeCommerceFilterStatus(status));
+  }
+
+  if (plan !== "all") {
+    items = items.filter((commerce) => {
+      const currentPlan = commerce.subscriptionPlan || commerce.plan || "free";
+
+      if (plan === "none") {
+        return currentPlan === "none" || currentPlan === "free" || !currentPlan;
+      }
+
+      return currentPlan === plan;
+    });
+  }
+
+  if (zone !== "all") {
+    items = items.filter((commerce) => commerceZone(commerce) === zone);
   }
 
   setText("commerceTableCount", `${items.length} registro${items.length === 1 ? "" : "s"}`);
 
   if (!items.length) {
-    tbody.innerHTML = emptyTableRow(8, "No hay comercios con esos filtros.");
+    tbody.innerHTML = emptyRow(8, "No hay comercios para mostrar.");
     return;
   }
 
-  tbody.innerHTML = items.map((commerce) => `
-    <tr>
-      <td>
-        ${profileCell({
-          name: commerce.businessName || "Comercio sin completar",
-          subtitle: commerce.email || commerce.phone || commerce.id,
-          imageUrl: commerce.logoUrl || commerce.coverUrl,
-        })}
-      </td>
-      <td>${escapeHtml(commerce.ownerName || commerce.uid || "Sin dueño")}</td>
-      <td>${escapeHtml(commerce.categoryName || commerce.categoryId || "Sin categoría")}</td>
-      <td>${statusBadge(commerce.status)}</td>
-      <td>${booleanBadge(commerce.isVisible, "Visible", "Oculto")}</td>
-      <td>${badge(commerce.plan || "none", "vehicle-badge")}</td>
-      <td>${escapeHtml(formatZone(commerce.serviceZoneId, commerce.department, commerce.municipality))}</td>
-      <td class="table-actions-col">
-        <div class="table-actions">
-          <button class="btn btn-secondary" type="button" data-action="open-commerce-detail" data-id="${escapeAttr(commerce.id)}">
-            Ver
-          </button>
-          <button
-            class="btn btn-primary"
-            type="button"
-            data-action="open-review-modal"
-            data-id="${escapeAttr(commerce.id)}"
-            data-collection="${COLLECTIONS.commerceProfiles}"
-            data-role="commerce"
-            data-decision="approve"
-          >
-            Decidir
-          </button>
-        </div>
-      </td>
-    </tr>
-  `).join("");
+  tbody.innerHTML = items.map((commerce) => {
+    const owner = commerceOwner(commerce);
+    const currentStatus = commerceStatus(commerce);
+
+    return `
+      <tr>
+        <td>
+          <div class="person-cell">
+            ${avatar(commerce.businessName || commerce.email)}
+            <div>
+              <strong>${e(commerce.businessName || "Comercio NIVO")}</strong>
+              <span>${e(commerce.email || owner?.email || "Sin correo")}</span>
+              <small>${e(commerce.commerceId || commerce.id)}</small>
+            </div>
+          </div>
+        </td>
+        <td>
+          <strong>${e(owner?.fullName || commerce.legalName || commerce.ownerName || "Propietario")}</strong>
+          <span>${e(owner?.phone || commerce.phone || "")}</span>
+        </td>
+        <td>${e(commerce.category || commerce.categoryName || commerce.categoryId || "Sin categoría")}</td>
+        <td>${statusPill(currentStatus)}</td>
+        <td>${isCommerceVisible(commerce) ? pill("Visible", "success") : pill("No visible", "warning")}</td>
+        <td>${e(planLabel(commerce.subscriptionPlan || commerce.plan || "free"))}</td>
+        <td>${e(formatZone(commerceZone(commerce), commerce.department, commerce.municipality))}</td>
+        <td class="table-actions">
+          <button class="text-btn" type="button" data-action="open-commerce-detail" data-id="${ea(commerce.id)}">Ver</button>
+          ${isCommercePending(commerce) ? `
+            <button class="text-btn primary" type="button" data-action="open-review-modal" data-id="${ea(commerce.id)}" data-collection="${COLLECTIONS.commerceProfiles}" data-role="commerce" data-decision="approve">Aprobar</button>
+          ` : ""}
+        </td>
+      </tr>
+    `;
+  }).join("");
 }
 
 function renderCommerceReview() {
   const tbody = $("#commerceReviewTableBody");
   if (!tbody) return;
 
-  const items = state.commerce.filter((commerce) => COMMERCE_REVIEW_STATUSES.has(commerce.status));
+  const items = state.commerce.filter(isCommercePending);
 
   setText("commerceReviewTableCount", `${items.length} registro${items.length === 1 ? "" : "s"}`);
 
   if (!items.length) {
-    tbody.innerHTML = emptyTableRow(7, "No hay comercios pendientes de decisión.");
+    tbody.innerHTML = emptyRow(7, "No hay comercios pendientes de decisión.");
     return;
   }
 
-  tbody.innerHTML = items.map((commerce) => `
-    <tr>
-      <td>
-        ${profileCell({
-          name: commerce.businessName || "Comercio sin completar",
-          subtitle: commerce.email || commerce.phone || commerce.id,
-          imageUrl: commerce.logoUrl || commerce.coverUrl,
-        })}
-      </td>
-      <td>${escapeHtml(commerce.ownerName || commerce.uid || "Sin dueño")}</td>
-      <td>${statusBadge(commerce.status)}</td>
-      <td>${escapeHtml(commerce.categoryName || commerce.categoryId || "Sin categoría")}</td>
-      <td>${escapeHtml(formatZone(commerce.serviceZoneId, commerce.department, commerce.municipality))}</td>
-      <td>${formatDate(get(commerce, "verification.documentsSubmittedAt") || commerce.updatedAt)}</td>
-      <td class="table-actions-col">
-        <div class="table-actions">
-          <button class="btn btn-secondary" type="button" data-action="open-commerce-detail" data-id="${escapeAttr(commerce.id)}">
-            Ver
-          </button>
-          <button
-            class="btn btn-primary"
-            type="button"
-            data-action="open-review-modal"
-            data-id="${escapeAttr(commerce.id)}"
-            data-collection="${COLLECTIONS.commerceProfiles}"
-            data-role="commerce"
-            data-decision="approve"
-          >
-            Aprobar
-          </button>
-          <button
-            class="btn btn-warning"
-            type="button"
-            data-action="open-review-modal"
-            data-id="${escapeAttr(commerce.id)}"
-            data-collection="${COLLECTIONS.commerceProfiles}"
-            data-role="commerce"
-            data-decision="correction_required"
-          >
-            Corrección
-          </button>
-          <button
-            class="btn btn-danger"
-            type="button"
-            data-action="open-review-modal"
-            data-id="${escapeAttr(commerce.id)}"
-            data-collection="${COLLECTIONS.commerceProfiles}"
-            data-role="commerce"
-            data-decision="reject"
-          >
-            Rechazar
-          </button>
-        </div>
-      </td>
-    </tr>
-  `).join("");
+  tbody.innerHTML = items.map((commerce) => {
+    const owner = commerceOwner(commerce);
+    const currentStatus = commerceStatus(commerce);
+
+    return `
+      <tr>
+        <td>
+          <strong>${e(commerce.businessName || "Comercio NIVO")}</strong>
+          <span>${e(commerce.email || owner?.email || "")}</span>
+        </td>
+        <td>
+          <strong>${e(owner?.fullName || commerce.legalName || commerce.ownerName || "Propietario")}</strong>
+          <span>${e(owner?.uid || commerce.ownerUid || "")}</span>
+        </td>
+        <td>${statusPill(currentStatus)}</td>
+        <td>${e(commerce.category || commerce.categoryName || commerce.categoryId || "Sin categoría")}</td>
+        <td>${e(formatZone(commerceZone(commerce), commerce.department, commerce.municipality))}</td>
+        <td>${date(commerce.createdAt || commerce.updatedAt)}</td>
+        <td class="table-actions">
+          <button class="text-btn" type="button" data-action="open-commerce-detail" data-id="${ea(commerce.id)}">Ver</button>
+          <button class="text-btn primary" type="button" data-action="open-review-modal" data-id="${ea(commerce.id)}" data-collection="${COLLECTIONS.commerceProfiles}" data-role="commerce" data-decision="approve">Aprobar</button>
+          <button class="text-btn" type="button" data-action="open-review-modal" data-id="${ea(commerce.id)}" data-collection="${COLLECTIONS.commerceProfiles}" data-role="commerce" data-decision="correction_required">Corrección</button>
+        </td>
+      </tr>
+    `;
+  }).join("");
 }
 
 /* =========================================================
@@ -1494,51 +1435,29 @@ function renderAgentsTable() {
   const tbody = $("#agentsTableBody");
   if (!tbody) return;
 
-  const search = normalizeText($("#globalSearch")?.value || "").toLowerCase();
-
-  let items = [...state.agents];
-
-  if (search) {
-    items = items.filter((item) => searchable(item, [
-      "fullName",
-      "email",
-      "phone",
-      "businessName",
-      "department",
-      "municipality",
-      "serviceZoneId",
-      "agentId",
-      "uid",
-    ]).includes(search));
-  }
+  const items = [...state.agents];
 
   setText("agentsTableCount", `${items.length} registro${items.length === 1 ? "" : "s"}`);
 
   if (!items.length) {
-    tbody.innerHTML = emptyTableRow(8, "No hay agentes registrados.");
+    tbody.innerHTML = emptyRow(8, "Aún no existen agentes NIVO registrados.");
     return;
   }
 
   tbody.innerHTML = items.map((agent) => `
     <tr>
       <td>
-        ${profileCell({
-          name: agent.fullName || "Agente NIVO",
-          subtitle: agent.email || agent.phone || agent.id,
-        })}
+        <strong>${e(agent.fullName || agent.businessName || "Agente NIVO")}</strong>
+        <span>${e(agent.email || agent.phone || "")}</span>
       </td>
-      <td>${statusBadge(agent.status)}</td>
-      <td>${escapeHtml(formatZone(agent.serviceZoneId, agent.department, agent.municipality))}</td>
-      <td>${booleanBadge(agent.canProcessTopups, "Sí", "No")}</td>
-      <td>${formatMoney(agent.dailyLimit || 0)}</td>
-      <td>${formatMoney(agent.monthlyLimit || 0)}</td>
-      <td>${formatPercent(agent.commissionRate || 0)}</td>
-      <td class="table-actions-col">
-        <div class="table-actions">
-          <button class="btn btn-secondary" type="button" data-action="open-agent-detail" data-id="${escapeAttr(agent.id)}">
-            Ver
-          </button>
-        </div>
+      <td>${statusPill(agent.status || "pending_review")}</td>
+      <td>${e(formatZone(agent.serviceZoneId, agent.department, agent.municipality))}</td>
+      <td>${agent.canProcessTopups || agent.canSellDriverTopUps ? pill("Sí", "success") : pill("No", "neutral")}</td>
+      <td>${money(agent.dailyLimit || 0)}</td>
+      <td>${money(agent.monthlyLimit || 0)}</td>
+      <td>${rate(agent.commissionRate || 0)}</td>
+      <td class="table-actions">
+        <button class="text-btn" type="button" data-action="open-agent-detail" data-id="${ea(agent.id)}">Ver</button>
       </td>
     </tr>
   `).join("");
@@ -1552,138 +1471,127 @@ function renderZonesTable() {
   const tbody = $("#zonesTableBody");
   if (!tbody) return;
 
-  const search = normalizeText($("#globalSearch")?.value || "").toLowerCase();
-
-  let items = [...state.serviceZones];
-
-  if (search) {
-    items = items.filter((item) => searchable(item, [
-      "id",
-      "displayName",
-      "country",
-      "department",
-      "municipality",
-      "serviceZoneId",
-    ]).includes(search));
-  }
+  const items = [...state.serviceZones];
 
   setText("zonesTableCount", `${items.length} registro${items.length === 1 ? "" : "s"}`);
 
   if (!items.length) {
-    tbody.innerHTML = emptyTableRow(7, "No hay zonas operativas creadas.");
+    tbody.innerHTML = emptyRow(7, "No hay zonas operativas configuradas.");
     return;
   }
 
-  tbody.innerHTML = items.map((zone) => `
-    <tr>
-      <td>
-        <strong>${escapeHtml(zone.displayName || zone.id)}</strong>
-        <br />
-        <span class="muted">${escapeHtml(zone.id)}</span>
-      </td>
-      <td>${escapeHtml(zone.department || "—")}</td>
-      <td>${escapeHtml(zone.municipality || "—")}</td>
-      <td>${servicesBadges(zone.enabledServices)}</td>
-      <td>${transportConfigsBadges(zone.transportConfigs)}</td>
-      <td>${booleanBadge(zone.active, "Activa", "Inactiva")}</td>
-      <td class="table-actions-col">
-        <div class="table-actions">
-          <button class="btn btn-secondary" type="button" data-action="open-zone-detail" data-id="${escapeAttr(zone.id)}">
-            Ver
-          </button>
-          <button class="btn btn-primary" type="button" data-action="edit-zone" data-id="${escapeAttr(zone.id)}">
-            Editar
-          </button>
-        </div>
-      </td>
-    </tr>
-  `).join("");
+  tbody.innerHTML = items.map((zone) => {
+    const fareTransport = fareTransportEnabled(zone.id);
+    const enabledRideTypes = normalizeEnabledRideTypes(zone.enabledRideTypes || fareTransport);
+
+    return `
+      <tr>
+        <td>
+          <strong>${e(zone.displayName || zone.id)}</strong>
+          <span>${e(zone.id)}</span>
+        </td>
+        <td>${e(zone.department || "—")}</td>
+        <td>${e(zone.municipality || "—")}</td>
+        <td>${servicesBadges(zone.enabledServices)}</td>
+        <td>${rideTypeBadges(enabledRideTypes)}</td>
+        <td>${zone.active === true ? statusPill("active") : statusPill("inactive")}</td>
+        <td class="table-actions">
+          <button class="text-btn" type="button" data-action="open-zone-detail" data-id="${ea(zone.id)}">Ver</button>
+          <button class="text-btn" type="button" data-action="edit-zone" data-id="${ea(zone.id)}">Editar</button>
+        </td>
+      </tr>
+    `;
+  }).join("");
 }
 
 function renderRideTypesTable() {
   const tbody = $("#rideTypesTableBody");
   if (!tbody) return;
 
-  const search = normalizeText($("#globalSearch")?.value || "").toLowerCase();
-
-  let items = [...state.rideTypes];
-
-  if (search) {
-    items = items.filter((item) => searchable(item, [
-      "id",
-      "title",
-      "description",
-    ]).includes(search));
-  }
+  const items = [...state.rideTypes];
 
   setText("rideTypesTableCount", `${items.length} registro${items.length === 1 ? "" : "s"}`);
 
   if (!items.length) {
-    tbody.innerHTML = emptyTableRow(7, "No hay categorías de transporte creadas.");
+    tbody.innerHTML = emptyRow(7, "Las categorías se derivarán desde fare_configs.transportConfigs.");
     return;
   }
 
   tbody.innerHTML = items.map((type) => `
     <tr>
       <td>
-        <strong>${escapeHtml(type.title || type.id)}</strong>
-        <br />
-        <span class="muted">${escapeHtml(type.description || "Sin descripción")}</span>
+        <strong>${e(type.transportTitle || vehicleLabel(type.transportId))}</strong>
+        <span>${e(type.sourceZoneLabel || type.serviceZoneId || "")}</span>
       </td>
-      <td>${escapeHtml(type.id)}</td>
-      <td>${booleanBadge(type.activeGlobally, "Activa", "Inactiva")}</td>
-      <td>${escapeHtml(String(type.maxPassengers || 1))}</td>
-      <td>${booleanBadge(type.chargesPerPassenger, "Sí", "No")}</td>
-      <td>${booleanBadge(type.requiresPassengerSelection, "Sí", "No")}</td>
-      <td class="table-actions-col">
-        <div class="table-actions">
-          <button class="btn btn-secondary" type="button" data-action="open-ride-type-detail" data-id="${escapeAttr(type.id)}">
-            Ver
-          </button>
-          <button class="btn btn-primary" type="button" data-action="edit-ride-type" data-id="${escapeAttr(type.id)}">
-            Editar
-          </button>
-        </div>
+      <td>${e(type.transportId || type.id)}</td>
+      <td>${type.active === true ? statusPill("active") : statusPill("inactive")}</td>
+      <td>${e(type.maxPassengers || 1)}</td>
+      <td>${type.chargesPerPassenger ? pill("Sí", "success") : pill("No", "neutral")}</td>
+      <td>${type.requiresPassengerSelection ? pill("Sí", "success") : pill("No", "neutral")}</td>
+      <td class="table-actions">
+        <button class="text-btn" type="button" data-action="open-ride-type-detail" data-id="${ea(type.id)}">Ver</button>
       </td>
     </tr>
   `).join("");
 }
 
 function renderPricing() {
-  const container = $("#pricingConfigGrid");
-  if (!container) return;
+  const grid = $("#pricingConfigGrid");
+  if (!grid) return;
 
-  if (!state.serviceZones.length) {
-    container.innerHTML = `<div class="empty-state">Las tarifas se cargarán desde service_zones y transportConfigs.</div>`;
+  const items = [...state.fareConfigs];
+
+  if (!items.length) {
+    grid.innerHTML = `
+      <div class="empty-state">
+        No hay documentos en fare_configs. Las tarifas oficiales deben vivir en fare_configs/{serviceZoneId}.
+      </div>
+    `;
     return;
   }
 
-  container.innerHTML = state.serviceZones.map((zone) => {
-    const configs = zone.transportConfigs || {};
+  grid.innerHTML = items.map((fare) => {
+    const zone = state.indexes.zonesById.get(fare.serviceZoneId || fare.id);
+    const configs = transportConfigs(fare.transportConfigs);
+    const deliveryConfig = fare.delivery || {};
+    const commissions = fare.commissions || {};
+    const title = zone?.displayName || fare.displayName || `${fare.municipality || ""}, ${fare.department || ""}`.trim() || fare.id;
 
     return `
-      <article class="panel">
+      <article class="panel pricing-card">
         <div class="panel-header">
           <div>
-            <p class="eyebrow">${escapeHtml(zone.id)}</p>
-            <h3>${escapeHtml(zone.displayName || `${zone.department || ""} ${zone.municipality || ""}`)}</h3>
+            <p class="eyebrow">${e(fare.id)}</p>
+            <h3>${e(title)}</h3>
           </div>
-          ${booleanBadge(zone.active, "Activa", "Inactiva")}
+          ${fare.active === true ? statusPill("active") : statusPill("inactive")}
         </div>
 
-        <div class="detail-grid">
-          ${Object.keys(configs).length ? Object.entries(configs).map(([key, cfg]) => `
-            <div class="detail-field">
-              <span>${escapeHtml(vehicleLabel(key))}</span>
-              <strong>
-                Base ${formatMoney(cfg.baseFare || 0)} · Mín. ${formatMoney(cfg.minimumFare || 0)}
-                <br />
-                Km ${formatMoney(cfg.pricePerKm || 0)} · Min ${formatMoney(cfg.pricePerMinute || 0)}
-              </strong>
+        <div class="config-list">
+          <div><strong>Moneda</strong><span>${e(fare.currencyCode || DEFAULT_CURRENCY)}</span></div>
+          <div><strong>Comisión general</strong><span>${rate(fare.platformCommissionRate || 0)}</span></div>
+          <div><strong>Delivery ciudad</strong><span>${money(deliveryConfig.cityFixedFee || fare.cityFixedFee || 0)}</span></div>
+          <div><strong>Máx. ciudad delivery</strong><span>${num(deliveryConfig.cityFixedMaxDistanceKm || 0)} km</span></div>
+        </div>
+
+        <h4>Transporte</h4>
+        <div class="config-grid compact">
+          ${Object.values(configs).length ? Object.values(configs).map((config) => `
+            <div class="mini-config-card">
+              <strong>${e(config.transportTitle || vehicleLabel(config.transportId))}</strong>
+              <span>${config.active === true ? "Activo" : "Inactivo"}</span>
+              <small>Base ${money(config.baseFare)} · Mín. ${money(config.minimumFare)}</small>
+              <small>${money(config.pricePerKm)}/km · ${money(config.pricePerMinute)}/min</small>
+              ${config.chargesPerPassenger ? `<small>Cobra por persona</small>` : ""}
             </div>
-          `).join("") : `
-            <div class="empty-state compact">Sin transportConfigs.</div>
-          `}
+          `).join("") : `<div class="empty-state compact">Sin transportConfigs en esta zona.</div>`}
+        </div>
+
+        <h4>Comisiones</h4>
+        <div class="config-list">
+          ${Object.entries(commissions).length ? Object.entries(commissions).map(([key, value]) => `
+            <div><strong>${e(key)}</strong><span>${rate(value?.ratePercent || value?.rate || 0)}</span></div>
+          `).join("") : `<div><strong>Default</strong><span>8%</span></div>`}
         </div>
       </article>
     `;
@@ -1691,31 +1599,52 @@ function renderPricing() {
 }
 
 /* =========================================================
-   SERVICE TABLES FUTURE MODULES
+   DELIVERY / RIDES
 ========================================================= */
 
 function renderDeliveryTable() {
   const tbody = $("#deliveryTableBody");
   if (!tbody) return;
 
-  setText("deliveryTableCount", `${state.deliveryOrders.length} registro${state.deliveryOrders.length === 1 ? "" : "s"}`);
+  const items = [...state.deliveryOrders]
+    .sort((a, b) => ms(b.createdAt) - ms(a.createdAt));
 
-  if (!state.deliveryOrders.length) {
-    tbody.innerHTML = emptyTableRow(8, "No hay órdenes de delivery registradas.");
+  setText("deliveryTableCount", `${items.length} registro${items.length === 1 ? "" : "s"}`);
+
+  if (!items.length) {
+    tbody.innerHTML = emptyRow(8, "No hay órdenes de delivery registradas.");
     return;
   }
 
-  tbody.innerHTML = state.deliveryOrders.map((order) => `
+  tbody.innerHTML = items.map((order) => `
     <tr>
-      <td>${escapeHtml(order.id)}</td>
-      <td>${escapeHtml(order.userId || order.uid || "—")}</td>
-      <td>${escapeHtml(order.commerceId || "—")}</td>
-      <td>${escapeHtml(order.driverId || "—")}</td>
-      <td>${statusBadge(order.status)}</td>
-      <td>${formatMoney(order.total || order.totalAmount || 0)}</td>
-      <td>${formatDate(order.createdAt)}</td>
-      <td class="table-actions-col">
-        <button class="btn btn-secondary" type="button">Ver</button>
+      <td>
+        <strong>${e(order.orderCode || order.orderId || order.id)}</strong>
+        <span>${e(order.logisticsStatus || order.driverDispatchStatus || "")}</span>
+      </td>
+      <td>
+        <strong>${e(order.customerName || order.userName || "Cliente")}</strong>
+        <span>${e(order.customerPhone || order.userId || "")}</span>
+      </td>
+      <td>
+        <strong>${e(order.commerceName || order.commerceId || "Comercio")}</strong>
+        <span>${e(order.paymentMethodLabel || order.paymentMethod || "")}</span>
+      </td>
+      <td>
+        <strong>${e(order.driverName || "Sin asignar")}</strong>
+        <span>${e(order.driverId || "")}</span>
+      </td>
+      <td>
+        ${statusPill(order.status || "pending")}
+        <small>${e(order.driverDispatchStatus || "")}</small>
+      </td>
+      <td>
+        <strong>${money(order.total || 0)}</strong>
+        <span>Fee ${money(order.deliveryFee || 0)} · Driver ${money(order.driverEarnings || 0)}</span>
+      </td>
+      <td>${date(order.createdAt)}</td>
+      <td class="table-actions">
+        <button class="text-btn" type="button" data-action="open-delivery-detail" data-id="${ea(order.id)}">Ver</button>
       </td>
     </tr>
   `).join("");
@@ -1725,101 +1654,121 @@ function renderRidesTable() {
   const tbody = $("#ridesTableBody");
   if (!tbody) return;
 
-  setText("ridesTableCount", `${state.rideRequests.length} registro${state.rideRequests.length === 1 ? "" : "s"}`);
+  const items = [...state.rideRequests]
+    .sort((a, b) => ms(b.createdAt) - ms(a.createdAt));
 
-  if (!state.rideRequests.length) {
-    tbody.innerHTML = emptyTableRow(8, "No hay solicitudes de viaje registradas.");
+  setText("ridesTableCount", `${items.length} registro${items.length === 1 ? "" : "s"}`);
+
+  if (!items.length) {
+    tbody.innerHTML = emptyRow(8, "No hay solicitudes de viaje registradas.");
     return;
   }
 
-  tbody.innerHTML = state.rideRequests.map((ride) => `
+  tbody.innerHTML = items.map((ride) => `
     <tr>
-      <td>${escapeHtml(ride.id)}</td>
-      <td>${escapeHtml(ride.userId || ride.uid || "—")}</td>
-      <td>${escapeHtml(ride.driverId || "—")}</td>
-      <td>${escapeHtml(vehicleLabel(ride.vehicleType || ride.transportType || "—"))}</td>
-      <td>${statusBadge(ride.status)}</td>
-      <td>${formatMoney(ride.fare || ride.total || ride.estimatedFare || 0)}</td>
-      <td>${formatDate(ride.createdAt)}</td>
-      <td class="table-actions-col">
-        <button class="btn btn-secondary" type="button">Ver</button>
+      <td>
+        <strong>${e(ride.rideCode || ride.rideId || ride.id)}</strong>
+        <span>${e(ride.serviceZoneId || ride.zoneId || "")}</span>
+      </td>
+      <td>${e(ride.userName || ride.userId || "Usuario")}</td>
+      <td>${e(ride.driverName || ride.driverId || "Sin asignar")}</td>
+      <td>${e(vehicleLabel(ride.transportType || ride.vehicleType || ride.rideType))}</td>
+      <td>${statusPill(ride.status || "pending")}</td>
+      <td>${money(ride.totalFare || ride.estimatedFare || ride.fare || 0)}</td>
+      <td>${date(ride.createdAt)}</td>
+      <td class="table-actions">
+        <button class="text-btn" type="button" data-action="open-ride-detail" data-id="${ea(ride.id)}">Ver</button>
       </td>
     </tr>
   `).join("");
 }
 
+/* =========================================================
+   LOCATIONS / WALLET / SUPPORT / SANCTIONS / NOTIFICATIONS / AUDIT / SETTINGS
+========================================================= */
+
 function renderLocations() {
-  const list = $("#onlineDriversList");
-  if (!list) return;
+  const container = $("#onlineDriversList");
+  if (!container) return;
 
-  const online = state.drivers.filter((driver) => get(driver, "availability.isOnline", false) === true);
+  const onlineDrivers = state.drivers.filter((driver) => get(driver, "availability.isOnline") === true);
 
-  if (!online.length) {
-    list.innerHTML = `<div class="empty-state compact">Sin conductores online cargados.</div>`;
+  if (!onlineDrivers.length) {
+    container.innerHTML = `<div class="empty-state compact">Sin conductores online cargados.</div>`;
     return;
   }
 
-  list.innerHTML = online.map((driver) => {
-    const location = state.driverLocations.find((item) => item.id === driver.id || item.driverId === driver.id);
-
-    return `
-      <div class="review-card">
-        <strong>${escapeHtml(driver.fullName || driver.email || driver.id)}</strong>
-        <span>${escapeHtml(vehicleLabel(driver.vehicleType))} · ${escapeHtml(driver.serviceZoneId || "Sin zona")}</span>
-        <span>${location ? `Última ubicación: ${formatDate(location.updatedAt)}` : "Sin ubicación reciente"}</span>
-      </div>
-    `;
-  }).join("");
+  container.innerHTML = onlineDrivers.map((driver) => `
+    <div class="compact-list-item">
+      <strong>${e(driver.fullName || "Conductor NIVO")}</strong>
+      <span>${e(vehicleLabel(driver.vehicleType))} · ${e(formatZone(driver.serviceZoneId, driver.department, driver.municipality))}</span>
+    </div>
+  `).join("");
 }
 
 function renderWalletLedgerTable() {
   const tbody = $("#walletLedgerTableBody");
   if (!tbody) return;
 
-  setText("walletLedgerTableCount", `${state.walletLedger.length} registro${state.walletLedger.length === 1 ? "" : "s"}`);
+  const items = [...state.driverWalletTransactions]
+    .sort((a, b) => ms(b.createdAt) - ms(a.createdAt));
 
-  if (!state.walletLedger.length) {
-    tbody.innerHTML = emptyTableRow(8, "No hay movimientos wallet cargados.");
+  setText("walletLedgerTableCount", `${items.length} registro${items.length === 1 ? "" : "s"}`);
+
+  if (!items.length) {
+    tbody.innerHTML = emptyRow(8, "No hay movimientos de wallet todavía.");
     return;
   }
 
-  tbody.innerHTML = state.walletLedger.map((movement) => `
-    <tr>
-      <td>${escapeHtml(movement.id)}</td>
-      <td>${escapeHtml(movement.uid || movement.userId || "—")}</td>
-      <td>${escapeHtml(movement.type || "—")}</td>
-      <td>${formatMoney(movement.amount || 0)}</td>
-      <td>${escapeHtml(movement.source || "—")}</td>
-      <td>${statusBadge(movement.status)}</td>
-      <td>${formatDate(movement.createdAt)}</td>
-      <td class="table-actions-col">
-        <button class="btn btn-secondary" type="button">Ver</button>
-      </td>
-    </tr>
-  `).join("");
+  tbody.innerHTML = items.map((movement) => {
+    const driver = state.indexes.driversById.get(movement.driverId);
+
+    return `
+      <tr>
+        <td>
+          <strong>${e(movement.description || walletMovementTitle(movement.type))}</strong>
+          <span>${e(movement.id)}</span>
+        </td>
+        <td>
+          <strong>${e(driver?.fullName || movement.driverId || "Conductor")}</strong>
+          <span>${e(movement.driverId || "")}</span>
+        </td>
+        <td>${e(walletMovementTitle(movement.type))}</td>
+        <td>${movement.direction === "debit" ? "-" : "+"}${money(movement.amount || 0)}</td>
+        <td>${e(movement.source || "dashboard")}</td>
+        <td>${statusPill(movement.status || "confirmed")}</td>
+        <td>${date(movement.createdAt)}</td>
+        <td class="table-actions">
+          <button class="text-btn" type="button" data-action="open-driver-detail" data-id="${ea(movement.driverId || "")}">Conductor</button>
+        </td>
+      </tr>
+    `;
+  }).join("");
 }
 
 function renderCashSettlementsTable() {
   const tbody = $("#cashSettlementsTableBody");
   if (!tbody) return;
 
-  setText("cashSettlementsTableCount", `${state.cashSettlements.length} registro${state.cashSettlements.length === 1 ? "" : "s"}`);
+  const items = [...state.cashSettlements];
 
-  if (!state.cashSettlements.length) {
-    tbody.innerHTML = emptyTableRow(7, "No hay liquidaciones cargadas.");
+  setText("cashSettlementsTableCount", `${items.length} registro${items.length === 1 ? "" : "s"}`);
+
+  if (!items.length) {
+    tbody.innerHTML = emptyRow(7, "No hay liquidaciones registradas todavía.");
     return;
   }
 
-  tbody.innerHTML = state.cashSettlements.map((settlement) => `
+  tbody.innerHTML = items.map((item) => `
     <tr>
-      <td>${escapeHtml(settlement.driverId || settlement.uid || "—")}</td>
-      <td>${formatMoney(settlement.cashPendingSettlement || settlement.pendingAmount || 0)}</td>
-      <td>${formatMoney(settlement.cashOverdueSettlement || settlement.overdueAmount || 0)}</td>
-      <td>${formatDate(settlement.cashDueAt || settlement.dueAt)}</td>
-      <td>${statusBadge(settlement.cashStatus || settlement.status)}</td>
-      <td>${settlement.proofUrl ? `<button class="btn btn-secondary" type="button" data-action="view-image" data-src="${escapeAttr(settlement.proofUrl)}" data-title="Comprobante">Ver</button>` : "—"}</td>
-      <td class="table-actions-col">
-        <button class="btn btn-secondary" type="button">Ver</button>
+      <td>${e(item.driverName || item.driverId || "Conductor")}</td>
+      <td>${money(item.cashPendingSettlement || item.pendingAmount || 0)}</td>
+      <td>${money(item.cashOverdueSettlement || item.overdueAmount || 0)}</td>
+      <td>${date(item.cashDueAt || item.dueAt)}</td>
+      <td>${statusPill(item.status || item.cashStatus || "pending")}</td>
+      <td>${item.proofUrl ? `<button class="text-btn" type="button" data-action="view-image" data-src="${ea(item.proofUrl)}" data-title="Comprobante">Ver</button>` : "—"}</td>
+      <td class="table-actions">
+        <button class="text-btn" type="button">Detalle</button>
       </td>
     </tr>
   `).join("");
@@ -1829,24 +1778,30 @@ function renderIncidentsTable() {
   const tbody = $("#incidentsTableBody");
   if (!tbody) return;
 
-  setText("incidentsTableCount", `${state.incidents.length} registro${state.incidents.length === 1 ? "" : "s"}`);
+  const items = [...state.supportTickets, ...state.safetyReports]
+    .sort((a, b) => ms(b.createdAt) - ms(a.createdAt));
 
-  if (!state.incidents.length) {
-    tbody.innerHTML = emptyTableRow(8, "No hay incidencias registradas.");
+  setText("incidentsTableCount", `${items.length} registro${items.length === 1 ? "" : "s"}`);
+
+  if (!items.length) {
+    tbody.innerHTML = emptyRow(8, "No hay incidencias registradas.");
     return;
   }
 
-  tbody.innerHTML = state.incidents.map((incident) => `
+  tbody.innerHTML = items.map((ticket) => `
     <tr>
-      <td>${escapeHtml(incident.id)}</td>
-      <td>${escapeHtml(incident.reporterId || "—")}</td>
-      <td>${escapeHtml(incident.reportedUserId || "—")}</td>
-      <td>${escapeHtml(incident.type || "—")}</td>
-      <td>${escapeHtml(incident.severity || "—")}</td>
-      <td>${statusBadge(incident.status)}</td>
-      <td>${formatDate(incident.createdAt)}</td>
-      <td class="table-actions-col">
-        <button class="btn btn-secondary" type="button">Ver</button>
+      <td>
+        <strong>${e(ticket.title || ticket.subject || ticket.reportType || ticket.id)}</strong>
+        <span>${e(ticket.message || ticket.description || "")}</span>
+      </td>
+      <td>${e(ticket.reporterName || ticket.createdBy || ticket.userId || "—")}</td>
+      <td>${e(ticket.reportedName || ticket.driverId || ticket.targetId || "—")}</td>
+      <td>${e(ticket.type || ticket.reportType || "general")}</td>
+      <td>${e(ticket.severity || ticket.priority || "normal")}</td>
+      <td>${statusPill(ticket.status || "pending")}</td>
+      <td>${date(ticket.createdAt)}</td>
+      <td class="table-actions">
+        <button class="text-btn" type="button">Ver</button>
       </td>
     </tr>
   `).join("");
@@ -1856,24 +1811,27 @@ function renderSanctionsTable() {
   const tbody = $("#sanctionsTableBody");
   if (!tbody) return;
 
-  setText("sanctionsTableCount", `${state.sanctions.length} registro${state.sanctions.length === 1 ? "" : "s"}`);
+  const items = [...state.sanctions, ...state.driverPolicyEvents]
+    .sort((a, b) => ms(b.createdAt) - ms(a.createdAt));
 
-  if (!state.sanctions.length) {
-    tbody.innerHTML = emptyTableRow(8, "No hay sanciones registradas.");
+  setText("sanctionsTableCount", `${items.length} registro${items.length === 1 ? "" : "s"}`);
+
+  if (!items.length) {
+    tbody.innerHTML = emptyRow(8, "No hay sanciones registradas.");
     return;
   }
 
-  tbody.innerHTML = state.sanctions.map((sanction) => `
+  tbody.innerHTML = items.map((sanction) => `
     <tr>
-      <td>${escapeHtml(sanction.targetUid || "—")}</td>
-      <td>${escapeHtml(ROLE_LABELS[sanction.targetRole] || sanction.targetRole || "—")}</td>
-      <td>${escapeHtml(sanction.type || "—")}</td>
-      <td>${escapeHtml(sanction.severity || "—")}</td>
-      <td>${booleanBadge(sanction.active, "Sí", "No")}</td>
-      <td>${formatDate(sanction.startsAt)}</td>
-      <td>${formatDate(sanction.endsAt)}</td>
-      <td class="table-actions-col">
-        <button class="btn btn-secondary" type="button">Ver</button>
+      <td>${e(sanction.targetName || sanction.driverName || sanction.driverId || sanction.targetId || "Perfil")}</td>
+      <td>${e(ROLE_LABELS[sanction.targetRole] || sanction.targetRole || "driver")}</td>
+      <td>${e(sanction.type || sanction.reportType || sanction.action || "sanción")}</td>
+      <td>${e(sanction.severity || "normal")}</td>
+      <td>${sanction.active === false ? pill("No", "neutral") : pill("Sí", "warning")}</td>
+      <td>${date(sanction.createdAt || sanction.startedAt)}</td>
+      <td>${date(sanction.endsAt || sanction.sanctionUntil)}</td>
+      <td class="table-actions">
+        <button class="text-btn" type="button">Detalle</button>
       </td>
     </tr>
   `).join("");
@@ -1883,26 +1841,28 @@ function renderNotificationsTable() {
   const tbody = $("#notificationsTableBody");
   if (!tbody) return;
 
-  setText("notificationsTableCount", `${state.notifications.length} registro${state.notifications.length === 1 ? "" : "s"}`);
+  const items = [...state.notifications]
+    .sort((a, b) => ms(b.createdAt) - ms(a.createdAt));
 
-  if (!state.notifications.length) {
-    tbody.innerHTML = emptyTableRow(6, "No hay notificaciones registradas.");
+  setText("notificationsTableCount", `${items.length} registro${items.length === 1 ? "" : "s"}`);
+
+  if (!items.length) {
+    tbody.innerHTML = emptyRow(6, "No hay notificaciones registradas.");
     return;
   }
 
-  tbody.innerHTML = state.notifications.map((notification) => `
+  tbody.innerHTML = items.map((notification) => `
     <tr>
       <td>
-        <strong>${escapeHtml(notification.title || "Notificación")}</strong>
-        <br />
-        <span class="muted">${escapeHtml(notification.body || "")}</span>
+        <strong>${e(notification.title || "Notificación NIVO")}</strong>
+        <span>${e(notification.body || notification.message || "")}</span>
       </td>
-      <td>${escapeHtml(notification.uid || notification.userId || notification.targetValue || notification.targetType || "—")}</td>
-      <td>${escapeHtml(notification.type || "info")}</td>
-      <td>${notification.read === false ? statusBadge("pending_review") : statusBadge("active")}</td>
-      <td>${formatDate(notification.createdAt)}</td>
-      <td class="table-actions-col">
-        <button class="btn btn-secondary" type="button">Ver</button>
+      <td>${e(notification.recipientRole || notification.targetRole || "perfil")} · ${e(notification.recipientId || notification.uid || notification.userId || "—")}</td>
+      <td>${e(notification.type || "info")}</td>
+      <td>${statusPill(notification.status || (notification.read ? "read" : "unread"))}</td>
+      <td>${date(notification.createdAt)}</td>
+      <td class="table-actions">
+        <button class="text-btn" type="button">Ver</button>
       </td>
     </tr>
   `).join("");
@@ -1912,243 +1872,257 @@ function renderAuditTable() {
   const tbody = $("#auditTableBody");
   if (!tbody) return;
 
-  const search = normalizeText($("#globalSearch")?.value || "").toLowerCase();
-
-  let items = [...state.adminActions];
-
-  if (search) {
-    items = items.filter((item) => searchable(item, [
-      "action",
-      "adminEmail",
-      "targetCollection",
-      "targetId",
-      "targetRole",
-      "reason",
-    ]).includes(search));
-  }
+  const items = [...state.adminActions, ...state.auditLogs]
+    .sort((a, b) => ms(b.createdAt) - ms(a.createdAt));
 
   setText("auditTableCount", `${items.length} registro${items.length === 1 ? "" : "s"}`);
 
   if (!items.length) {
-    tbody.innerHTML = emptyTableRow(7, "No hay acciones administrativas registradas.");
+    tbody.innerHTML = emptyRow(7, "No hay acciones administrativas registradas.");
     return;
   }
 
-  tbody.innerHTML = items.map((action) => `
+  tbody.innerHTML = items.map((item) => `
     <tr>
-      <td>${escapeHtml(action.action || "—")}</td>
-      <td>${escapeHtml(action.adminEmail || action.adminId || "—")}</td>
-      <td>
-        <strong>${escapeHtml(action.targetCollection || "—")}</strong>
-        <br />
-        <span class="muted">${escapeHtml(action.targetId || "—")}</span>
-      </td>
-      <td>${escapeHtml(action.targetRole || "—")}</td>
-      <td>${escapeHtml(action.reason || "Sin motivo")}</td>
-      <td>${formatDate(action.createdAt)}</td>
-      <td class="table-actions-col">
-        <button class="btn btn-secondary" type="button">Ver</button>
+      <td>${e(item.action || "Acción")}</td>
+      <td>${e(item.adminEmail || item.adminId || "Admin")}</td>
+      <td>${e(item.targetId || "—")}</td>
+      <td>${e(item.targetRole || item.targetCollection || "—")}</td>
+      <td>${e(item.reason || "—")}</td>
+      <td>${date(item.createdAt)}</td>
+      <td class="table-actions">
+        <button class="text-btn" type="button">Detalle</button>
       </td>
     </tr>
   `).join("");
 }
 
 function renderSettings() {
-  const list = $("#appSettingsList");
-  if (!list) return;
+  const container = $("#appSettingsList");
+  if (!container) return;
 
-  if (!state.appSettings.length) {
-    list.innerHTML = `<div class="empty-state compact">Configuraciones pendientes de cargar.</div>`;
+  if (!state.platformConfigs.length) {
+    container.innerHTML = `<div class="empty-state compact">No hay configuraciones en platform_configs.</div>`;
     return;
   }
 
-  list.innerHTML = state.appSettings.map((setting) => `
-    <div class="review-card">
-      <strong>${escapeHtml(setting.id)}</strong>
-      <span>${escapeHtml(setting.description || setting.key || "Configuración")}</span>
+  container.innerHTML = state.platformConfigs.map((config) => `
+    <div class="config-item">
+      <strong>${e(config.configId || config.id)}</strong>
+      <span>${config.active === true ? "Activo" : "Inactivo"}</span>
     </div>
   `).join("");
 }
 
 /* =========================================================
-   DETAILS DRAWER
+   DETALLE / DRAWER
 ========================================================= */
 
 function openUserDetail(id) {
-  const user = state.indexes.usersById.get(id);
-  if (!user) return showToast("No se encontró el usuario.", "error");
+  const item = state.indexes.usersById.get(id);
+  if (!item) return;
 
-  state.activeDetail = {
+  openDetailDrawer({
     type: "user",
     collection: COLLECTIONS.users,
     id,
-    data: user,
-  };
-
-  openDetailDrawer({
-    eyebrow: "Usuario",
-    title: user.fullName || user.email || id,
-    subtitle: `${ROLE_LABELS[user.role] || user.role || "user"} · ${STATUS_LABELS[user.status] || user.status || "Sin estado"}`,
-    summaryHtml: renderUserSummary(user),
-    documentsHtml: `<div class="empty-state compact">Los usuarios base no tienen documentos administrativos.</div>`,
-    operationHtml: renderUserOperation(user),
-    financeHtml: `<div class="empty-state compact">Datos financieros pendientes de conectar.</div>`,
-    historyHtml: renderAuditForTarget(COLLECTIONS.users, id),
+    title: item.fullName || item.email || "Usuario NIVO",
+    subtitle: item.email || item.uid || id,
+    summary: profileSummaryHtml(item),
+    documents: `<div class="empty-state compact">Los usuarios no tienen documentos administrativos en este módulo.</div>`,
+    operation: jsonBlock(item),
+    finance: `<div class="empty-state compact">Sin datos financieros directos.</div>`,
+    history: historyHtml(COLLECTIONS.users, id),
   });
 }
 
 function openDriverDetail(id) {
-  const driver = state.indexes.driversById.get(id);
-  if (!driver) return showToast("No se encontró el conductor.", "error");
+  const item = state.indexes.driversById.get(id);
+  if (!item) return;
 
-  state.activeDetail = {
-    type: "driver",
-    collection: COLLECTIONS.driverProfiles,
-    id,
-    data: driver,
-  };
+  const driverId = item.driverId || item.uid || item.id;
+  const vehicle = primaryVehicle(item);
+  const wallet = driverWallet(driverId);
 
   openDetailDrawer({
-    eyebrow: "Conductor / Repartidor",
-    title: driver.fullName || driver.email || id,
-    subtitle: `${vehicleLabel(driver.vehicleType)} · ${STATUS_LABELS[driver.status] || driver.status || "Sin estado"}`,
-    summaryHtml: renderDriverSummary(driver),
-    documentsHtml: renderDriverDocuments(driver),
-    operationHtml: renderDriverOperation(driver),
-    financeHtml: renderDriverFinance(driver),
-    historyHtml: renderAuditForTarget(COLLECTIONS.driverProfiles, id),
+    type: "driver",
+    collection: COLLECTIONS.driverProfiles,
+    id: item.id,
+    title: item.fullName || "Conductor NIVO",
+    subtitle: `${vehicleLabel(item.vehicleType)} · ${formatZone(item.serviceZoneId, item.department, item.municipality)}`,
+    summary: driverSummaryHtml(item, vehicle, wallet),
+    documents: documentsHtml(item.documents, vehicle?.documents),
+    operation: driverOperationHtml(item, vehicle),
+    finance: driverFinanceHtml(item, wallet),
+    history: historyHtml(COLLECTIONS.driverProfiles, item.id),
   });
 }
 
 function openCommerceDetail(id) {
-  const commerce = state.indexes.commerceById.get(id);
-  if (!commerce) return showToast("No se encontró el comercio.", "error");
+  const item = state.indexes.commerceById.get(id);
+  if (!item) return;
 
-  state.activeDetail = {
-    type: "commerce",
-    collection: COLLECTIONS.commerceProfiles,
-    id,
-    data: commerce,
-  };
+  const owner = commerceOwner(item);
 
   openDetailDrawer({
-    eyebrow: "Comercio",
-    title: commerce.businessName || "Comercio sin completar",
-    subtitle: `${commerce.ownerName || commerce.email || id} · ${STATUS_LABELS[commerce.status] || commerce.status || "Sin estado"}`,
-    summaryHtml: renderCommerceSummary(commerce),
-    documentsHtml: renderCommerceDocuments(commerce),
-    operationHtml: renderCommerceOperation(commerce),
-    financeHtml: renderCommerceFinance(commerce),
-    historyHtml: renderAuditForTarget(COLLECTIONS.commerceProfiles, id),
+    type: "commerce",
+    collection: COLLECTIONS.commerceProfiles,
+    id: item.id,
+    title: item.businessName || "Comercio NIVO",
+    subtitle: `${item.category || item.categoryId || "Comercio"} · ${formatZone(commerceZone(item), item.department, item.municipality)}`,
+    summary: commerceSummaryHtml(item, owner),
+    documents: commerceImagesHtml(item),
+    operation: commerceOperationHtml(item, owner),
+    finance: commerceFinanceHtml(item),
+    history: historyHtml(COLLECTIONS.commerceProfiles, item.id),
   });
 }
 
 function openAgentDetail(id) {
-  const agent = state.indexes.agentsById.get(id);
-  if (!agent) return showToast("No se encontró el agente.", "error");
+  const item = state.indexes.agentsById.get(id);
+  if (!item) return;
 
-  state.activeDetail = {
+  openDetailDrawer({
     type: "agent",
     collection: COLLECTIONS.agentProfiles,
     id,
-    data: agent,
-  };
-
-  openDetailDrawer({
-    eyebrow: "Agente NIVO",
-    title: agent.fullName || agent.email || id,
-    subtitle: `${STATUS_LABELS[agent.status] || agent.status || "Sin estado"} · ${agent.serviceZoneId || "Sin zona"}`,
-    summaryHtml: renderAgentSummary(agent),
-    documentsHtml: `<div class="empty-state compact">Documentos de agente pendientes de conectar.</div>`,
-    operationHtml: renderAgentOperation(agent),
-    financeHtml: renderAgentFinance(agent),
-    historyHtml: renderAuditForTarget(COLLECTIONS.agentProfiles, id),
+    title: item.fullName || item.businessName || "Agente NIVO",
+    subtitle: item.email || item.phone || id,
+    summary: profileSummaryHtml(item),
+    documents: `<div class="empty-state compact">Documentos de agente pendientes de definir.</div>`,
+    operation: jsonBlock(item),
+    finance: jsonBlock(item),
+    history: historyHtml(COLLECTIONS.agentProfiles, id),
   });
 }
 
 function openZoneDetail(id) {
-  const zone = state.indexes.zonesById.get(id);
-  if (!zone) return showToast("No se encontró la zona.", "error");
+  const item = state.indexes.zonesById.get(id);
+  if (!item) return;
 
-  state.activeDetail = {
+  const fare = state.indexes.fareConfigsById.get(id) || state.indexes.fareConfigsById.get(item.serviceZoneId);
+
+  openDetailDrawer({
     type: "zone",
     collection: COLLECTIONS.serviceZones,
     id,
-    data: zone,
-  };
-
-  openDetailDrawer({
-    eyebrow: "Zona operativa",
-    title: zone.displayName || id,
-    subtitle: `${zone.department || "—"} · ${zone.municipality || "—"}`,
-    summaryHtml: renderZoneSummary(zone),
-    documentsHtml: `<div class="empty-state compact">Las zonas no tienen documentos.</div>`,
-    operationHtml: renderZoneOperation(zone),
-    financeHtml: renderZonePricing(zone),
-    historyHtml: renderAuditForTarget(COLLECTIONS.serviceZones, id),
+    title: item.displayName || id,
+    subtitle: `${item.municipality || ""}, ${item.department || ""}`,
+    summary: zoneSummaryHtml(item, fare),
+    documents: `<div class="empty-state compact">Sin documentos para zonas.</div>`,
+    operation: jsonBlock(item),
+    finance: fare ? jsonBlock(fare) : `<div class="empty-state compact">No hay fare_config para esta zona.</div>`,
+    history: historyHtml(COLLECTIONS.serviceZones, id),
   });
 }
 
 function openRideTypeDetail(id) {
-  const rideType = state.indexes.rideTypesById.get(id);
-  if (!rideType) return showToast("No se encontró la categoría.", "error");
-
-  state.activeDetail = {
-    type: "rideType",
-    collection: COLLECTIONS.rideTypes,
-    id,
-    data: rideType,
-  };
+  const item = state.indexes.rideTypesById.get(id);
+  if (!item) return;
 
   openDetailDrawer({
-    eyebrow: "Categoría transporte",
-    title: rideType.title || id,
-    subtitle: rideType.description || "Catálogo global de transporte",
-    summaryHtml: renderRideTypeSummary(rideType),
-    documentsHtml: `<div class="empty-state compact">Las categorías no tienen documentos.</div>`,
-    operationHtml: renderRideTypeOperation(rideType),
-    financeHtml: `<div class="empty-state compact">La tarifa por zona se administra en service_zones.</div>`,
-    historyHtml: renderAuditForTarget(COLLECTIONS.rideTypes, id),
+    type: "ride-type",
+    collection: COLLECTIONS.fareConfigs,
+    id,
+    title: item.transportTitle || vehicleLabel(item.transportId),
+    subtitle: item.serviceZoneId || id,
+    summary: jsonBlock(item),
+    documents: `<div class="empty-state compact">Sin documentos.</div>`,
+    operation: jsonBlock(item),
+    finance: jsonBlock(item),
+    history: `<div class="empty-state compact">Categoría derivada de fare_configs.</div>`,
   });
 }
 
-function openDetailDrawer({ eyebrow, title, subtitle, summaryHtml, documentsHtml, operationHtml, financeHtml, historyHtml }) {
-  setText("detailDrawerEyebrow", eyebrow);
-  setText("detailDrawerTitle", title);
-  setText("detailDrawerSubtitle", subtitle);
+function openDeliveryDetail(id) {
+  const item = state.deliveryOrders.find((order) => order.id === id);
+  if (!item) return;
 
-  setHTML("detailSummaryPanel", summaryHtml || "");
-  setHTML("detailDocumentsPanel", documentsHtml || "");
-  setHTML("detailOperationPanel", operationHtml || "");
-  setHTML("detailFinancePanel", financeHtml || "");
-  setHTML("detailHistoryPanel", historyHtml || "");
+  openDetailDrawer({
+    type: "delivery",
+    collection: COLLECTIONS.deliveryOrders,
+    id,
+    title: item.orderCode || item.orderId || id,
+    subtitle: `${item.commerceName || item.commerceId || "Comercio"} · ${item.customerName || item.userName || "Cliente"}`,
+    summary: deliverySummaryHtml(item),
+    documents: deliveryProofHtml(item),
+    operation: jsonBlock({
+      status: item.status,
+      logisticsStatus: item.logisticsStatus,
+      driverDispatchStatus: item.driverDispatchStatus,
+      statusEvents: item.statusEvents || [],
+    }),
+    finance: jsonBlock({
+      subtotal: item.subtotal,
+      deliveryFee: item.deliveryFee,
+      driverEarnings: item.driverEarnings,
+      commerceEarnings: item.commerceEarnings,
+      total: item.total,
+      paymentMethod: item.paymentMethod,
+      paymentStatus: item.paymentStatus,
+    }),
+    history: deliveryEventsHtml(item),
+  });
+}
 
-  updateDrawerFooter();
+function openRideDetail(id) {
+  const item = state.rideRequests.find((ride) => ride.id === id);
+  if (!item) return;
+
+  openDetailDrawer({
+    type: "ride",
+    collection: COLLECTIONS.rideRequests,
+    id,
+    title: item.rideCode || item.rideId || id,
+    subtitle: `${item.userName || item.userId || "Usuario"} · ${vehicleLabel(item.transportType || item.vehicleType)}`,
+    summary: jsonBlock(item),
+    documents: `<div class="empty-state compact">Sin documentos.</div>`,
+    operation: jsonBlock(item),
+    finance: jsonBlock({
+      estimatedFare: item.estimatedFare,
+      totalFare: item.totalFare,
+      fare: item.fare,
+      commission: item.commission,
+    }),
+    history: historyHtml(COLLECTIONS.rideRequests, id),
+  });
+}
+
+function openDetailDrawer(payload) {
+  state.activeDetail = payload;
+
+  setText("detailDrawerEyebrow", payload.collection || "Detalle");
+  setText("detailDrawerTitle", payload.title || "Perfil seleccionado");
+  setText("detailDrawerSubtitle", payload.subtitle || "");
+
+  setHtml("detailSummaryPanel", payload.summary || "");
+  setHtml("detailDocumentsPanel", payload.documents || "");
+  setHtml("detailOperationPanel", payload.operation || "");
+  setHtml("detailFinancePanel", payload.finance || "");
+  setHtml("detailHistoryPanel", payload.history || "");
+
+  showDetailTab("summary");
 
   const drawer = $("#detailDrawer");
   if (!drawer) return;
 
-  drawer.classList.add("is-open");
+  drawer.classList.add("open");
   drawer.setAttribute("aria-hidden", "false");
   document.body.classList.add("is-locked");
-
-  showDetailTab("summary");
 }
 
 function closeDetailDrawer() {
   const drawer = $("#detailDrawer");
   if (!drawer) return;
 
-  drawer.classList.remove("is-open");
+  drawer.classList.remove("open");
   drawer.setAttribute("aria-hidden", "true");
   document.body.classList.remove("is-locked");
-
-  state.activeDetail = null;
 }
 
 function showDetailTab(tabName) {
-  $$(".drawer-tab").forEach((button) => {
-    button.classList.toggle("active", button.dataset.detailTab === tabName);
+  $$(".drawer-tab").forEach((tab) => {
+    tab.classList.toggle("active", tab.dataset.detailTab === tabName);
   });
 
   $$(".drawer-tab-panel").forEach((panel) => {
@@ -2158,987 +2132,594 @@ function showDetailTab(tabName) {
   });
 }
 
-function updateDrawerFooter() {
-  const footer = $(".drawer-footer");
-  if (!footer) return;
-
-  const active = state.activeDetail;
-  const isReviewable = active && (active.type === "driver" || active.type === "commerce");
-
-  $$("[data-action='drawer-require-correction'], [data-action='drawer-block-profile'], [data-action='drawer-approve-profile']", footer)
-    .forEach((button) => {
-      button.hidden = !isReviewable;
-    });
-}
-
 /* =========================================================
-   DETAIL RENDERERS
-========================================================= */
-
-function renderUserSummary(user) {
-  const adminProfile = state.indexes.adminsById.get(user.id);
-
-  return `
-    <div class="detail-card">
-      <h3>Identidad</h3>
-      <div class="detail-grid">
-        ${detailField("UID", user.uid || user.id)}
-        ${detailField("Nombre", user.fullName || "—")}
-        ${detailField("Correo", user.email || "—")}
-        ${detailField("Teléfono", user.phone || "—")}
-        ${detailField("Rol base", ROLE_LABELS[user.role] || user.role || "—")}
-        ${detailField("Estado", STATUS_LABELS[user.status] || user.status || "—")}
-        ${detailField("Admin", adminProfile ? `Sí · ${adminProfile.role}` : "No")}
-        ${detailField("Proveedor", user.provider || "—")}
-      </div>
-    </div>
-
-    <div class="detail-card">
-      <h3>Zona</h3>
-      <div class="detail-grid">
-        ${detailField("País", user.country || "—")}
-        ${detailField("Departamento", user.department || "—")}
-        ${detailField("Municipio", user.municipality || "—")}
-        ${detailField("registeredZoneId", user.registeredZoneId || "—")}
-      </div>
-    </div>
-  `;
-}
-
-function renderUserOperation(user) {
-  return `
-    <div class="detail-card">
-      <h3>Actividad de cuenta</h3>
-      <div class="detail-grid">
-        ${detailField("Perfil completo", user.profileCompleted ? "Sí" : "No")}
-        ${detailField("Reglas aceptadas", user.acceptedCommunityRules ? "Sí" : "No")}
-        ${detailField("Versión reglas", user.acceptedCommunityRulesVersion || "—")}
-        ${detailField("Fuente", user.source || "—")}
-        ${detailField("Registro", formatDate(user.createdAt))}
-        ${detailField("Último login", formatDate(user.lastLoginAt))}
-      </div>
-    </div>
-  `;
-}
-
-function renderDriverSummary(driver) {
-  return `
-    <div class="detail-card">
-      <h3>Conductor</h3>
-      <div class="detail-grid">
-        ${detailField("Driver ID", driver.driverId || driver.id)}
-        ${detailField("Nombre", driver.fullName || "—")}
-        ${detailField("Correo", driver.email || "—")}
-        ${detailField("Teléfono", driver.phone || "—")}
-        ${detailField("Estado", STATUS_LABELS[driver.status] || driver.status || "—")}
-        ${detailField("Motivo estado", driver.statusReason || "—")}
-        ${detailField("Vehículo", vehicleLabel(driver.vehicleType))}
-        ${detailField("Placa", get(driver, "documentNumbers.plate", "—"))}
-      </div>
-    </div>
-
-    <div class="detail-card">
-      <h3>Zona y servicios</h3>
-      <div class="detail-grid">
-        ${detailField("País", driver.country || "—")}
-        ${detailField("Departamento", driver.department || "—")}
-        ${detailField("Municipio", driver.municipality || "—")}
-        ${detailField("serviceZoneId", driver.serviceZoneId || "—")}
-        ${detailField("Viajes", get(driver, "enabledServices.ride", false) ? "Sí" : "No")}
-        ${detailField("Delivery", get(driver, "enabledServices.delivery", false) ? "Sí" : "No")}
-        ${detailField("Paquetes", get(driver, "enabledServices.package", false) ? "Sí" : "No")}
-        ${detailField("Escolar", get(driver, "enabledServices.school", false) ? "Sí" : "No")}
-      </div>
-    </div>
-  `;
-}
-
-function renderDriverDocuments(driver) {
-  const docs = driver.documents || {};
-  const docItems = [
-    ["Selfie", docs.selfieUrl],
-    ["DUI frontal", docs.duiFrontUrl],
-    ["DUI reverso", docs.duiBackUrl],
-    ["Licencia frontal", docs.licenseFrontUrl],
-    ["Licencia reverso", docs.licenseBackUrl],
-    ["Tarjeta circulación", docs.circulationCardUrl],
-    ["Vehículo frente", docs.vehicleFrontUrl],
-    ["Vehículo atrás", docs.vehicleBackUrl],
-    ["Vehículo izquierda", docs.vehicleLeftUrl],
-    ["Vehículo derecha", docs.vehicleRightUrl],
-  ];
-
-  return `
-    <div class="detail-card">
-      <h3>Documentos del conductor</h3>
-      <div class="document-grid">
-        ${docItems.map(([label, url]) => documentCard(label, url)).join("")}
-      </div>
-    </div>
-
-    <div class="detail-card">
-      <h3>Números/documentos</h3>
-      <div class="detail-grid">
-        ${detailField("DUI", get(driver, "documentNumbers.duiNumber", "—"))}
-        ${detailField("Licencia", get(driver, "documentNumbers.licenseNumber", "—"))}
-        ${detailField("Tarjeta circulación", get(driver, "documentNumbers.circulationCardNumber", "—"))}
-        ${detailField("Placa", get(driver, "documentNumbers.plate", "—"))}
-      </div>
-    </div>
-  `;
-}
-
-function renderDriverOperation(driver) {
-  return `
-    <div class="detail-card">
-      <h3>Disponibilidad</h3>
-      <div class="detail-grid">
-        ${detailField("Online", get(driver, "availability.isOnline", false) ? "Sí" : "No")}
-        ${detailField("Disponible", get(driver, "availability.isAvailable", false) ? "Sí" : "No")}
-        ${detailField("Puede viajes", get(driver, "availability.canReceiveRideOffers", false) ? "Sí" : "No")}
-        ${detailField("Puede delivery", get(driver, "availability.canReceiveDeliveryOffers", false) ? "Sí" : "No")}
-        ${detailField("Tarea actual", get(driver, "availability.currentTaskId", "—"))}
-        ${detailField("Tipo tarea actual", get(driver, "availability.currentTaskType", "—"))}
-      </div>
-    </div>
-
-    <div class="detail-card">
-      <h3>Revisión</h3>
-      <div class="detail-grid">
-        ${detailField("Documentos completos", get(driver, "verification.documentsCompleted", false) ? "Sí" : "No")}
-        ${detailField("Selfie verificada", get(driver, "verification.selfieVerified", false) ? "Sí" : "No")}
-        ${detailField("Vehículo verificado", get(driver, "verification.vehicleVerified", false) ? "Sí" : "No")}
-        ${detailField("Enviado", formatDate(get(driver, "verification.documentsSubmittedAt")))}
-        ${detailField("Revisado", formatDate(get(driver, "verification.reviewedAt")))}
-        ${detailField("Revisado por", get(driver, "verification.reviewedBy", "—"))}
-        ${detailField("Motivo rechazo", get(driver, "verification.rejectionReason", "—"))}
-        ${detailField("Corrección", get(driver, "verification.reviewReason", "—"))}
-      </div>
-    </div>
-
-    <div class="detail-card">
-      <h3>Política operativa</h3>
-      <div class="detail-grid">
-        ${detailField("Puede recibir tareas", get(driver, "policy.canReceiveTasks", false) ? "Sí" : "No")}
-        ${detailField("Bloqueo", get(driver, "policy.blockReason", "—"))}
-        ${detailField("Bloqueado por", get(driver, "policy.blockedBy", "—"))}
-        ${detailField("Bloqueado en", formatDate(get(driver, "policy.blockedAt")))}
-      </div>
-    </div>
-  `;
-}
-
-function renderDriverFinance(driver) {
-  return `
-    <div class="detail-card">
-      <h3>Métricas</h3>
-      <div class="detail-grid">
-        ${detailField("Tareas completadas", get(driver, "metrics.completedTasks", 0))}
-        ${detailField("Tareas canceladas", get(driver, "metrics.cancelledTasks", 0))}
-        ${detailField("Rating", get(driver, "metrics.rating", 0))}
-        ${detailField("Ganancias", formatMoney(get(driver, "metrics.totalEarnings", 0)))}
-      </div>
-    </div>
-  `;
-}
-
-function renderCommerceSummary(commerce) {
-  return `
-    <div class="detail-card">
-      <h3>Comercio</h3>
-      <div class="detail-grid">
-        ${detailField("Commerce ID", commerce.commerceId || commerce.id)}
-        ${detailField("Nombre negocio", commerce.businessName || "—")}
-        ${detailField("Razón legal", commerce.legalName || "—")}
-        ${detailField("Dueño", commerce.ownerName || commerce.ownerUid || "—")}
-        ${detailField("Correo", commerce.email || "—")}
-        ${detailField("Teléfono", commerce.phone || "—")}
-        ${detailField("Categoría", commerce.categoryName || commerce.categoryId || "—")}
-        ${detailField("Estado", STATUS_LABELS[commerce.status] || commerce.status || "—")}
-      </div>
-    </div>
-
-    <div class="detail-card">
-      <h3>Zona</h3>
-      <div class="detail-grid">
-        ${detailField("Departamento", commerce.department || "—")}
-        ${detailField("Municipio", commerce.municipality || "—")}
-        ${detailField("Dirección", commerce.address || "—")}
-        ${detailField("serviceZoneId", commerce.serviceZoneId || "—")}
-      </div>
-    </div>
-  `;
-}
-
-function renderCommerceDocuments(commerce) {
-  return `
-    <div class="detail-card">
-      <h3>Imágenes del comercio</h3>
-      <div class="document-grid">
-        ${documentCard("Logo", commerce.logoUrl)}
-        ${documentCard("Portada", commerce.coverUrl)}
-      </div>
-    </div>
-  `;
-}
-
-function renderCommerceOperation(commerce) {
-  return `
-    <div class="detail-card">
-      <h3>Operación</h3>
-      <div class="detail-grid">
-        ${detailField("Puede recibir órdenes", commerce.canReceiveOrders ? "Sí" : "No")}
-        ${detailField("Visible en app", commerce.isVisible ? "Sí" : "No")}
-        ${detailField("Catálogo activo", commerce.catalogEnabled ? "Sí" : "No")}
-        ${detailField("Plan", commerce.plan || "none")}
-        ${detailField("Acepta efectivo", get(commerce, "settings.acceptsCash", false) ? "Sí" : "No")}
-        ${detailField("Acepta tarjeta", get(commerce, "settings.acceptsCard", false) ? "Sí" : "No")}
-        ${detailField("Tiempo preparación", `${get(commerce, "settings.preparationTimeMinutes", 30)} min`)}
-        ${detailField("Auto aceptar", get(commerce, "settings.autoAcceptOrders", false) ? "Sí" : "No")}
-      </div>
-    </div>
-
-    <div class="detail-card">
-      <h3>Verificación</h3>
-      <div class="detail-grid">
-        ${detailField("Estado", get(commerce, "verification.status", "—"))}
-        ${detailField("Enviado", formatDate(get(commerce, "verification.documentsSubmittedAt")))}
-        ${detailField("Revisado", formatDate(get(commerce, "verification.reviewedAt")))}
-        ${detailField("Revisado por", get(commerce, "verification.reviewedBy", "—"))}
-        ${detailField("Motivo rechazo", get(commerce, "verification.rejectionReason", "—"))}
-        ${detailField("Corrección", get(commerce, "verification.reviewReason", "—"))}
-      </div>
-    </div>
-  `;
-}
-
-function renderCommerceFinance(commerce) {
-  return `
-    <div class="detail-card">
-      <h3>Métricas comerciales</h3>
-      <div class="detail-grid">
-        ${detailField("Órdenes completadas", get(commerce, "metrics.ordersCompleted", 0))}
-        ${detailField("Órdenes canceladas", get(commerce, "metrics.ordersCancelled", 0))}
-        ${detailField("Rating", get(commerce, "metrics.rating", 0))}
-        ${detailField("Ventas totales", formatMoney(get(commerce, "metrics.totalSales", 0)))}
-        ${detailField("Comisión", formatPercent(commerce.commissionRate || 0))}
-        ${detailField("Prep. promedio", `${get(commerce, "metrics.averagePreparationMinutes", 0)} min`)}
-      </div>
-    </div>
-  `;
-}
-
-function renderAgentSummary(agent) {
-  return `
-    <div class="detail-card">
-      <h3>Agente</h3>
-      <div class="detail-grid">
-        ${detailField("Agent ID", agent.agentId || agent.id)}
-        ${detailField("Nombre", agent.fullName || "—")}
-        ${detailField("Correo", agent.email || "—")}
-        ${detailField("Teléfono", agent.phone || "—")}
-        ${detailField("Negocio", agent.businessName || "—")}
-        ${detailField("Estado", STATUS_LABELS[agent.status] || agent.status || "—")}
-      </div>
-    </div>
-  `;
-}
-
-function renderAgentOperation(agent) {
-  return `
-    <div class="detail-card">
-      <h3>Operación</h3>
-      <div class="detail-grid">
-        ${detailField("Puede procesar recargas", agent.canProcessTopups ? "Sí" : "No")}
-        ${detailField("Zona", agent.serviceZoneId || "—")}
-        ${detailField("Departamento", agent.department || "—")}
-        ${detailField("Municipio", agent.municipality || "—")}
-        ${detailField("Revisado", formatDate(agent.reviewedAt))}
-        ${detailField("Revisado por", agent.reviewedBy || "—")}
-      </div>
-    </div>
-  `;
-}
-
-function renderAgentFinance(agent) {
-  return `
-    <div class="detail-card">
-      <h3>Límites y comisión</h3>
-      <div class="detail-grid">
-        ${detailField("Límite diario", formatMoney(agent.dailyLimit || 0))}
-        ${detailField("Límite mensual", formatMoney(agent.monthlyLimit || 0))}
-        ${detailField("Comisión", formatPercent(agent.commissionRate || 0))}
-      </div>
-    </div>
-  `;
-}
-
-function renderZoneSummary(zone) {
-  return `
-    <div class="detail-card">
-      <h3>Zona</h3>
-      <div class="detail-grid">
-        ${detailField("ID", zone.id)}
-        ${detailField("Nombre", zone.displayName || "—")}
-        ${detailField("País", zone.country || "SV")}
-        ${detailField("Departamento", zone.department || "—")}
-        ${detailField("Municipio", zone.municipality || "—")}
-        ${detailField("Activa", zone.active ? "Sí" : "No")}
-      </div>
-    </div>
-  `;
-}
-
-function renderZoneOperation(zone) {
-  return `
-    <div class="detail-card">
-      <h3>Servicios</h3>
-      <div class="detail-grid">
-        ${detailField("Viajes", get(zone, "enabledServices.ride", false) ? "Sí" : "No")}
-        ${detailField("Delivery", get(zone, "enabledServices.delivery", false) ? "Sí" : "No")}
-        ${detailField("Paquetes", get(zone, "enabledServices.package", false) ? "Sí" : "No")}
-        ${detailField("Escolar", get(zone, "enabledServices.school", false) ? "Sí" : "No")}
-      </div>
-    </div>
-
-    <div class="detail-card">
-      <h3>Transportes</h3>
-      <div class="detail-grid">
-        ${Object.entries(zone.transportConfigs || {}).map(([key, value]) => (
-          detailField(vehicleLabel(key), value?.active ? "Activo" : "Inactivo")
-        )).join("") || detailField("Transportes", "Sin configurar")}
-      </div>
-    </div>
-  `;
-}
-
-function renderZonePricing(zone) {
-  const configs = zone.transportConfigs || {};
-
-  return `
-    <div class="detail-card">
-      <h3>Tarifas por transporte</h3>
-      <div class="detail-grid">
-        ${Object.entries(configs).map(([key, cfg]) => `
-          ${detailField(`${vehicleLabel(key)} base`, formatMoney(cfg.baseFare || 0))}
-          ${detailField(`${vehicleLabel(key)} mínimo`, formatMoney(cfg.minimumFare || 0))}
-          ${detailField(`${vehicleLabel(key)} km`, formatMoney(cfg.pricePerKm || 0))}
-          ${detailField(`${vehicleLabel(key)} minuto`, formatMoney(cfg.pricePerMinute || 0))}
-        `).join("") || detailField("Tarifas", "Sin configurar")}
-      </div>
-    </div>
-  `;
-}
-
-function renderRideTypeSummary(type) {
-  return `
-    <div class="detail-card">
-      <h3>Categoría</h3>
-      <div class="detail-grid">
-        ${detailField("ID", type.id)}
-        ${detailField("Nombre", type.title || "—")}
-        ${detailField("Descripción", type.description || "—")}
-        ${detailField("Activo globalmente", type.activeGlobally ? "Sí" : "No")}
-        ${detailField("Pasajeros máximos", type.maxPassengers || 1)}
-        ${detailField("Orden", type.sortOrder || 0)}
-      </div>
-    </div>
-  `;
-}
-
-function renderRideTypeOperation(type) {
-  return `
-    <div class="detail-card">
-      <h3>Reglas</h3>
-      <div class="detail-grid">
-        ${detailField("Cobra por persona", type.chargesPerPassenger ? "Sí" : "No")}
-        ${detailField("Requiere selección pasajeros", type.requiresPassengerSelection ? "Sí" : "No")}
-        ${detailField("Creado", formatDate(type.createdAt))}
-        ${detailField("Actualizado", formatDate(type.updatedAt))}
-      </div>
-    </div>
-  `;
-}
-
-function renderAuditForTarget(collectionName, targetId) {
-  const items = state.adminActions.filter((action) => {
-    return action.targetCollection === collectionName && action.targetId === targetId;
-  });
-
-  if (!items.length) {
-    return `<div class="empty-state compact">No hay historial administrativo para este perfil.</div>`;
-  }
-
-  return `
-    <div class="detail-card">
-      <h3>Historial administrativo</h3>
-      <div class="compact-list">
-        ${items.map((action) => `
-          <div class="review-card">
-            <strong>${escapeHtml(action.action || "Acción")}</strong>
-            <span>${escapeHtml(action.adminEmail || action.adminId || "Admin")} · ${formatDate(action.createdAt)}</span>
-            <span>${escapeHtml(action.reason || "Sin motivo")}</span>
-          </div>
-        `).join("")}
-      </div>
-    </div>
-  `;
-}
-
-/* =========================================================
-   REVIEW / APPROVAL ACTIONS
+   MODALES / DECISIONES
 ========================================================= */
 
 function openReviewModal({ targetId, targetCollection, targetRole, decision = "" }) {
-  const modal = $("#reviewDecisionModal");
-  if (!modal) return;
+  if (!targetId || !targetCollection || !targetRole) {
+    showToast("No se pudo abrir la revisión: faltan datos del objetivo.", "error", "Revisión");
+    return;
+  }
 
-  $("#reviewTargetId").value = targetId || "";
-  $("#reviewTargetCollection").value = targetCollection || "";
-  $("#reviewTargetRole").value = targetRole || "";
+  $("#reviewTargetId").value = targetId;
+  $("#reviewTargetCollection").value = targetCollection;
+  $("#reviewTargetRole").value = targetRole;
   $("#reviewDecisionType").value = decision || "";
   $("#reviewDecisionReason").value = "";
-
-  const title = targetRole === "commerce"
-    ? "Revisar comercio"
-    : "Revisar conductor";
-
-  setText("reviewDecisionTitle", title);
 
   openModal("reviewDecisionModal");
 }
 
 async function handleReviewDecisionSubmit() {
-  const targetId = normalizeText($("#reviewTargetId")?.value);
-  const targetCollection = normalizeText($("#reviewTargetCollection")?.value);
-  const targetRole = normalizeText($("#reviewTargetRole")?.value);
-  const decision = normalizeText($("#reviewDecisionType")?.value);
-  const reason = normalizeText($("#reviewDecisionReason")?.value);
+  const targetId = $("#reviewTargetId")?.value;
+  const collectionName = $("#reviewTargetCollection")?.value;
+  const targetRole = $("#reviewTargetRole")?.value;
+  const decision = $("#reviewDecisionType")?.value;
+  const reason = $("#reviewDecisionReason")?.value?.trim() || "";
 
-  if (!targetId || !targetCollection || !targetRole || !decision) {
-    showToast("Selecciona una decisión válida.", "warning", "Falta decisión");
-    return;
-  }
-
-  if (["reject", "block", "correction_required"].includes(decision) && reason.length < 5) {
-    showToast("Escribe un motivo claro para esta decisión.", "warning", "Motivo requerido");
+  if (!targetId || !collectionName || !targetRole || !decision) {
+    showToast("Selecciona una decisión válida.", "error", "Decisión incompleta");
     return;
   }
 
   try {
-    setFormLoading("reviewDecisionForm", true);
+    setModalBusy("reviewDecisionModal", true);
 
-    if (targetRole === "driver") {
+    if (targetRole === "driver" || collectionName === COLLECTIONS.driverProfiles) {
       await applyDriverDecision(targetId, decision, reason);
-    } else if (targetRole === "commerce") {
+    } else if (targetRole === "commerce" || collectionName === COLLECTIONS.commerceProfiles) {
       await applyCommerceDecision(targetId, decision, reason);
     } else {
-      throw new Error("Tipo de perfil no soportado para revisión.");
+      throw new Error("Tipo de perfil no soportado por esta decisión.");
     }
 
     closeModal("reviewDecisionModal");
-    closeDetailDrawer();
-
+    showToast("La decisión fue aplicada correctamente.", "success", "Decisión guardada");
     await loadDashboardData();
-
-    showToast("La decisión administrativa fue aplicada correctamente.", "success", "Decisión guardada");
   } catch (error) {
     console.error("[NIVO Dashboard] Error aplicando decisión:", error);
     showToast(error.message || "No se pudo aplicar la decisión.", "error", "Error");
   } finally {
-    setFormLoading("reviewDecisionForm", false);
+    setModalBusy("reviewDecisionModal", false);
   }
 }
 
-async function applyDriverDecision(driverId, decision, reason) {
-  const driver = state.indexes.driversById.get(driverId) || await fetchDocument(COLLECTIONS.driverProfiles, driverId);
+async function applyDriverDecision(driverDocId, decision, reason) {
+  const driver = state.indexes.driversById.get(driverDocId) || await fetchDocument(COLLECTIONS.driverProfiles, driverDocId);
 
   if (!driver) {
-    throw new Error("No se encontró el conductor.");
+    throw new Error("No se encontró el perfil del conductor.");
   }
 
+  const driverId = driver.driverId || driver.uid || driver.id;
+  const profileRef = doc(state.db, COLLECTIONS.driverProfiles, driver.id);
+  const vehicle = primaryVehicle(driver);
+  const vehicleId = vehicle?.id || driver.primaryVehicleId || `${driverId}_primary_vehicle`;
+  const vehicleRef = doc(state.db, COLLECTIONS.driverVehicles, vehicleId);
+  const walletRef = doc(state.db, COLLECTIONS.driverWallets, driverId);
+  const transactionRef = doc(state.db, COLLECTIONS.driverWalletTransactions, `${driverId}_welcome_bonus`);
+
+  const adminId = state.adminContext?.uid || state.firebaseUser?.uid || "";
+  const adminEmail = state.adminContext?.email || state.firebaseUser?.email || "";
+  const now = serverTimestamp();
+
   const batch = writeBatch(state.db);
-  const driverRef = doc(state.db, COLLECTIONS.driverProfiles, driverId);
-  const userRef = doc(state.db, COLLECTIONS.users, driver.uid || driverId);
-
-  const baseVerification = {
-    "verification.reviewedAt": serverTimestamp(),
-    "verification.reviewedBy": state.firebaseUser.uid,
-    "verification.adminNote": reason || null,
-  };
-
-  let profileUpdate = {};
-  let userUpdate = {};
-  let action = "";
-  let notification = null;
 
   if (decision === "approve") {
-    profileUpdate = {
+    const enabledServices = normalizeServices(driver.enabledServices);
+
+    batch.set(profileRef, {
+      status: DRIVER_STATUSES.approved,
+      statusReason: "",
+      approvedAt: now,
+      approvedBy: adminId,
+      rejectedAt: null,
+      rejectedBy: "",
+      blockedAt: null,
+      blockedBy: "",
+      manualReviewRequired: false,
+      registration: {
+        currentStep: "approved",
+        profileCompleted: true,
+        zoneSelected: true,
+        vehicleSelected: true,
+        servicesSelected: true,
+        documentsCompleted: true,
+      },
+      verification: {
+        documentsCompleted: true,
+        duplicateCheckStatus: "approved",
+        duplicateCheckReason: "",
+        selfieVerified: true,
+        vehicleVerified: true,
+        reviewedAt: now,
+        reviewedBy: adminId,
+        adminNote: reason,
+      },
+      policy: {
+        canReceiveTasks: true,
+        currentSanctionStatus: "none",
+        manualReviewRequired: false,
+        activePenaltyPoints: Number(get(driver, "policy.activePenaltyPoints", 0)) || 0,
+        trustScore: Number(get(driver, "policy.trustScore", 100)) || 100,
+      },
+      availability: {
+        isOnline: false,
+        isAvailable: false,
+        canReceiveRideOffers: enabledServices.ride,
+        canReceiveDeliveryOffers: enabledServices.delivery,
+        canReceivePackageOffers: enabledServices.package,
+        currentTaskId: get(driver, "availability.currentTaskId", "") || "",
+        currentTaskType: get(driver, "availability.currentTaskType", "none") || "none",
+      },
+      wallet: {
+        balance: WELCOME_BALANCE,
+        currencyCode: DEFAULT_CURRENCY,
+        minimumBalanceRequired: MINIMUM_DRIVER_BALANCE,
+        welcomeBalanceAmount: WELCOME_BALANCE,
+        welcomeBalanceGranted: true,
+        canReceiveCommissionedTasks: true,
+        lowBalanceWarning: false,
+        lastWalletUpdateAt: now,
+      },
+      updatedAt: now,
+    }, { merge: true });
+
+    batch.set(vehicleRef, {
+      vehicleId,
+      uid: driverId,
+      driverId,
+      status: DRIVER_STATUSES.approved,
+      isActive: true,
+      isPrimary: true,
+      approvedAt: now,
+      approvedBy: adminId,
+      rejectedAt: null,
+      rejectedBy: "",
+      rejectionReason: "",
+      updatedAt: now,
+    }, { merge: true });
+
+    batch.set(walletRef, {
+      driverId,
+      uid: driverId,
+      currencyCode: DEFAULT_CURRENCY,
       status: "active",
-      statusReason: null,
+      balance: {
+        availableBalance: WELCOME_BALANCE,
+        rechargedBalance: 0,
+        welcomeBalance: WELCOME_BALANCE,
+        totalCredited: WELCOME_BALANCE,
+        totalDebited: 0,
+      },
+      rules: {
+        minimumBalanceRequired: MINIMUM_DRIVER_BALANCE,
+        canReceiveCommissionedTasks: true,
+        lowBalanceWarning: false,
+        allowNegativeBalance: false,
+      },
+      welcome: {
+        enabled: true,
+        amount: WELCOME_BALANCE,
+        granted: true,
+        grantedAt: now,
+        grantedBy: adminId,
+        reason: "Saldo de bienvenida NIVO",
+      },
+      createdAt: get(driverWallet(driverId), "createdAt", now),
+      updatedAt: now,
+    }, { merge: true });
 
-      ...baseVerification,
+    batch.set(transactionRef, {
+      transactionId: `${driverId}_welcome_bonus`,
+      driverId,
+      type: "welcome_bonus",
+      direction: "credit",
+      amount: WELCOME_BALANCE,
+      currencyCode: DEFAULT_CURRENCY,
+      description: "Saldo de bienvenida NIVO",
+      serviceType: "",
+      serviceId: "",
+      source: "dashboard_admin",
+      status: "confirmed",
+      createdAt: now,
+      createdBy: adminId,
+      createdByEmail: adminEmail,
+    }, { merge: true });
 
-      "verification.selfieVerified": true,
-      "verification.vehicleVerified": true,
-      "verification.rejectionReason": null,
-      "verification.reviewReason": null,
-
-      "policy.canReceiveTasks": true,
-      "policy.blockReason": null,
-      "policy.blockedAt": null,
-      "policy.blockedBy": null,
-
-      updatedAt: serverTimestamp(),
-    };
-
-    userUpdate = {
-      status: "active",
-      profileCompleted: true,
-      updatedAt: serverTimestamp(),
-    };
-
-    action = "driver_approved";
-
-    notification = {
-      title: "Tu cuenta fue aprobada",
-      body: "Ya puedes empezar a operar en NIVO cuando completes tu disponibilidad.",
-      type: "driver_approved",
-    };
+    addNotificationToBatch(batch, {
+      recipientId: driverId,
+      recipientRole: "driver",
+      title: "Cuenta aprobada",
+      body: "Tu cuenta NIVO Driver fue aprobada. Ya puedes entrar al panel y conectarte cuando tengas saldo disponible.",
+      type: "account",
+      source: "dashboard_admin",
+    });
   }
 
   if (decision === "correction_required") {
-    profileUpdate = {
-      status: "correction_required",
-      statusReason: reason || "Documentos requieren corrección",
+    batch.set(profileRef, {
+      status: DRIVER_STATUSES.correctionRequired,
+      statusReason: reason || "NIVO necesita que corrijas o actualices información de tu registro.",
+      manualReviewRequired: true,
+      verification: {
+        duplicateCheckStatus: "correction_required",
+        reviewReason: reason,
+        adminNote: reason,
+        reviewedAt: now,
+        reviewedBy: adminId,
+      },
+      policy: {
+        canReceiveTasks: false,
+        manualReviewRequired: true,
+      },
+      availability: {
+        isOnline: false,
+        isAvailable: false,
+        canReceiveRideOffers: false,
+        canReceiveDeliveryOffers: false,
+        canReceivePackageOffers: false,
+      },
+      updatedAt: now,
+    }, { merge: true });
 
-      ...baseVerification,
+    batch.set(vehicleRef, {
+      status: DRIVER_STATUSES.correctionRequired,
+      isActive: false,
+      rejectionReason: reason,
+      updatedAt: now,
+    }, { merge: true });
 
-      "verification.reviewReason": reason || "Debes corregir tus documentos.",
-      "verification.rejectionReason": null,
-
-      "policy.canReceiveTasks": false,
-
-      updatedAt: serverTimestamp(),
-    };
-
-    userUpdate = {
-      status: "pending_profile",
-      profileCompleted: false,
-      updatedAt: serverTimestamp(),
-    };
-
-    action = "driver_correction_required";
-
-    notification = {
-      title: "Debes corregir tus documentos",
-      body: reason || "Revisa tu app NIVO Driver para completar la corrección.",
-      type: "driver_correction_required",
-    };
+    addNotificationToBatch(batch, {
+      recipientId: driverId,
+      recipientRole: "driver",
+      title: "Corrección requerida",
+      body: reason || "NIVO necesita que revises tus documentos o datos del vehículo.",
+      type: "documents",
+      source: "dashboard_admin",
+    });
   }
 
   if (decision === "reject") {
-    profileUpdate = {
-      status: "rejected",
-      statusReason: reason || "Solicitud rechazada",
+    batch.set(profileRef, {
+      status: DRIVER_STATUSES.rejected,
+      statusReason: reason || "Tu solicitud fue rechazada por NIVO.",
+      rejectedAt: now,
+      rejectedBy: adminId,
+      verification: {
+        duplicateCheckStatus: "rejected",
+        rejectionReason: reason,
+        adminNote: reason,
+        reviewedAt: now,
+        reviewedBy: adminId,
+      },
+      policy: {
+        canReceiveTasks: false,
+      },
+      availability: {
+        isOnline: false,
+        isAvailable: false,
+        canReceiveRideOffers: false,
+        canReceiveDeliveryOffers: false,
+        canReceivePackageOffers: false,
+      },
+      updatedAt: now,
+    }, { merge: true });
 
-      ...baseVerification,
+    batch.set(vehicleRef, {
+      status: DRIVER_STATUSES.rejected,
+      isActive: false,
+      rejectedAt: now,
+      rejectedBy: adminId,
+      rejectionReason: reason,
+      updatedAt: now,
+    }, { merge: true });
 
-      "verification.rejectionReason": reason || "Solicitud rechazada.",
-      "verification.reviewReason": null,
-
-      "policy.canReceiveTasks": false,
-
-      updatedAt: serverTimestamp(),
-    };
-
-    userUpdate = {
-      status: "rejected",
-      profileCompleted: false,
-      updatedAt: serverTimestamp(),
-    };
-
-    action = "driver_rejected";
-
-    notification = {
-      title: "Tu solicitud no fue aprobada",
-      body: reason || "Tu perfil de conductor no fue aprobado.",
-      type: "driver_rejected",
-    };
+    addNotificationToBatch(batch, {
+      recipientId: driverId,
+      recipientRole: "driver",
+      title: "Solicitud rechazada",
+      body: reason || "Tu solicitud de conductor fue rechazada por NIVO.",
+      type: "account",
+      source: "dashboard_admin",
+    });
   }
 
   if (decision === "block") {
-    profileUpdate = {
-      status: "blocked",
-      statusReason: reason || "Cuenta bloqueada",
+    batch.set(profileRef, {
+      status: DRIVER_STATUSES.blocked,
+      statusReason: reason || "Tu cuenta fue bloqueada por administración NIVO.",
+      blockedAt: now,
+      blockedBy: adminId,
+      policy: {
+        canReceiveTasks: false,
+        currentSanctionStatus: "blocked",
+        manualReviewRequired: true,
+      },
+      availability: {
+        isOnline: false,
+        isAvailable: false,
+        canReceiveRideOffers: false,
+        canReceiveDeliveryOffers: false,
+        canReceivePackageOffers: false,
+      },
+      wallet: {
+        canReceiveCommissionedTasks: false,
+      },
+      updatedAt: now,
+    }, { merge: true });
 
-      ...baseVerification,
+    batch.set(vehicleRef, {
+      status: DRIVER_STATUSES.blocked,
+      isActive: false,
+      updatedAt: now,
+    }, { merge: true });
 
-      "policy.canReceiveTasks": false,
-      "policy.blockReason": reason || "Bloqueo administrativo",
-      "policy.blockedAt": serverTimestamp(),
-      "policy.blockedBy": state.firebaseUser.uid,
-
-      updatedAt: serverTimestamp(),
-    };
-
-    userUpdate = {
-      status: "blocked",
-      updatedAt: serverTimestamp(),
-    };
-
-    action = "driver_blocked";
-
-    notification = {
-      title: "Tu cuenta de conductor fue bloqueada",
-      body: reason || "Contacta a soporte NIVO para más información.",
-      type: "driver_blocked",
-    };
-  }
-
-  if (!action) {
-    throw new Error("Decisión de conductor no reconocida.");
-  }
-
-  batch.update(driverRef, profileUpdate);
-  batch.update(userRef, userUpdate);
-
-  addAdminActionToBatch(batch, {
-    action,
-    targetCollection: COLLECTIONS.driverProfiles,
-    targetId: driverId,
-    targetRole: "driver",
-    reason: reason || null,
-    before: auditSnapshot(driver),
-    after: {
-      status: profileUpdate.status,
-      userStatus: userUpdate.status,
-      policyCanReceiveTasks: profileUpdate["policy.canReceiveTasks"] ?? null,
-    },
-    metadata: {
-      decision,
-    },
-  });
-
-  if (notification) {
     addNotificationToBatch(batch, {
-      uid: driver.uid || driverId,
-      title: notification.title,
-      body: notification.body,
-      type: notification.type,
-      targetRole: "driver",
+      recipientId: driverId,
+      recipientRole: "driver",
+      title: "Cuenta bloqueada",
+      body: reason || "Tu cuenta NIVO Driver fue bloqueada. Contacta a soporte para más información.",
+      type: "warning",
+      source: "dashboard_admin",
     });
   }
+
+  addAdminActionToBatch(batch, {
+    action: `driver_${decision}`,
+    targetCollection: COLLECTIONS.driverProfiles,
+    targetId: driver.id,
+    targetRole: "driver",
+    reason,
+  });
 
   await batch.commit();
 }
 
-async function applyCommerceDecision(commerceId, decision, reason) {
-  const commerce = state.indexes.commerceById.get(commerceId) || await fetchDocument(COLLECTIONS.commerceProfiles, commerceId);
+async function applyCommerceDecision(commerceDocId, decision, reason) {
+  const commerce = state.indexes.commerceById.get(commerceDocId) || await fetchDocument(COLLECTIONS.commerceProfiles, commerceDocId);
 
   if (!commerce) {
-    throw new Error("No se encontró el comercio.");
+    throw new Error("No se encontró el perfil del comercio.");
   }
 
+  const owner = commerceOwner(commerce);
+  const ownerUid = commerce.ownerUid || commerce.uid || owner?.uid;
+
+  if (!ownerUid) {
+    throw new Error("El comercio no tiene ownerUid para actualizar commerce_users.");
+  }
+
+  const commerceId = commerce.commerceId || commerce.id;
+  const profileRef = doc(state.db, COLLECTIONS.commerceProfiles, commerce.id);
+  const ownerRef = doc(state.db, COLLECTIONS.commerceUsers, ownerUid);
+
+  const adminId = state.adminContext?.uid || state.firebaseUser?.uid || "";
+  const now = serverTimestamp();
+
   const batch = writeBatch(state.db);
-  const commerceRef = doc(state.db, COLLECTIONS.commerceProfiles, commerceId);
-  const userRef = doc(state.db, COLLECTIONS.users, commerce.uid || commerce.ownerUid || commerceId);
-
-  const baseVerification = {
-    "verification.reviewedAt": serverTimestamp(),
-    "verification.reviewedBy": state.firebaseUser.uid,
-    "verification.adminNote": reason || null,
-  };
-
-  let profileUpdate = {};
-  let userUpdate = {};
-  let action = "";
-  let notification = null;
 
   if (decision === "approve") {
-    profileUpdate = {
+    batch.set(profileRef, {
+      commerceId,
+      ownerUid,
+      active: true,
+      verified: true,
+      deliveryEnabled: commerce.deliveryEnabled !== false,
+      chatEnabled: commerce.chatEnabled !== false,
+      catalogEnabled: commerce.catalogEnabled !== false,
+      canReceiveDeliveryOrders: true,
+      openStatus: commerce.openStatus || "closed",
+      openStatusLabel: commerce.openStatusLabel || "Cerrado",
+      isCurrentlyOpen: commerce.isCurrentlyOpen === true,
+      verification: {
+        status: "approved",
+        reviewedAt: now,
+        reviewedBy: adminId,
+        adminNote: reason,
+      },
       status: "active",
+      updatedAt: now,
+    }, { merge: true });
 
-      ...baseVerification,
+    batch.set(ownerRef, {
+      uid: ownerUid,
+      commerceId,
+      status: COMMERCE_USER_STATUSES.active,
+      role: owner?.role || "commerce_owner",
+      permissions: owner?.permissions || {
+        canManageProfile: true,
+        canManageCatalog: true,
+        canManageOrders: true,
+        canManageChats: true,
+        canManageStaff: true,
+        canViewStats: true,
+      },
+      updatedAt: now,
+    }, { merge: true });
 
-      "verification.status": "approved",
-      "verification.rejectionReason": null,
-      "verification.reviewReason": null,
-
-      canReceiveOrders: true,
-      isVisible: true,
-
-      updatedAt: serverTimestamp(),
-    };
-
-    userUpdate = {
-      status: "active",
-      profileCompleted: true,
-      updatedAt: serverTimestamp(),
-    };
-
-    action = "commerce_approved";
-
-    notification = {
-      title: "Tu comercio fue aprobado",
-      body: "Tu comercio ya puede operar en NIVO.",
-      type: "commerce_approved",
-    };
+    addNotificationToBatch(batch, {
+      recipientId: ownerUid,
+      recipientRole: "commerce",
+      title: "Comercio aprobado",
+      body: "Tu comercio fue aprobado por NIVO. Ya puedes entrar al panel y preparar tu operación.",
+      type: "account",
+      source: "dashboard_admin",
+    });
   }
 
   if (decision === "correction_required") {
-    profileUpdate = {
+    batch.set(profileRef, {
+      active: false,
+      verified: false,
+      canReceiveDeliveryOrders: false,
       status: "correction_required",
+      verification: {
+        status: "correction_required",
+        reviewReason: reason,
+        adminNote: reason,
+        reviewedAt: now,
+        reviewedBy: adminId,
+      },
+      updatedAt: now,
+    }, { merge: true });
 
-      ...baseVerification,
+    batch.set(ownerRef, {
+      status: COMMERCE_USER_STATUSES.pendingVerification,
+      updatedAt: now,
+    }, { merge: true });
 
-      "verification.status": "correction_required",
-      "verification.reviewReason": reason || "Debes corregir la información del comercio.",
-      "verification.rejectionReason": null,
-
-      canReceiveOrders: false,
-      isVisible: false,
-
-      updatedAt: serverTimestamp(),
-    };
-
-    userUpdate = {
-      status: "pending_profile",
-      profileCompleted: false,
-      updatedAt: serverTimestamp(),
-    };
-
-    action = "commerce_correction_required";
-
-    notification = {
-      title: "Tu comercio necesita corrección",
-      body: reason || "Revisa tu app NIVO Commerce para completar la corrección.",
-      type: "commerce_correction_required",
-    };
+    addNotificationToBatch(batch, {
+      recipientId: ownerUid,
+      recipientRole: "commerce",
+      title: "Corrección requerida",
+      body: reason || "NIVO necesita que revises la información de tu comercio.",
+      type: "account",
+      source: "dashboard_admin",
+    });
   }
 
   if (decision === "reject") {
-    profileUpdate = {
+    batch.set(profileRef, {
+      active: false,
+      verified: false,
+      canReceiveDeliveryOrders: false,
       status: "rejected",
+      verification: {
+        status: "rejected",
+        rejectionReason: reason,
+        adminNote: reason,
+        reviewedAt: now,
+        reviewedBy: adminId,
+      },
+      updatedAt: now,
+    }, { merge: true });
 
-      ...baseVerification,
+    batch.set(ownerRef, {
+      status: COMMERCE_USER_STATUSES.suspended,
+      updatedAt: now,
+    }, { merge: true });
 
-      "verification.status": "rejected",
-      "verification.rejectionReason": reason || "Comercio rechazado.",
-      "verification.reviewReason": null,
-
-      canReceiveOrders: false,
-      isVisible: false,
-
-      updatedAt: serverTimestamp(),
-    };
-
-    userUpdate = {
-      status: "rejected",
-      profileCompleted: false,
-      updatedAt: serverTimestamp(),
-    };
-
-    action = "commerce_rejected";
-
-    notification = {
-      title: "Tu comercio no fue aprobado",
-      body: reason || "Tu comercio no fue aprobado para operar en NIVO.",
-      type: "commerce_rejected",
-    };
+    addNotificationToBatch(batch, {
+      recipientId: ownerUid,
+      recipientRole: "commerce",
+      title: "Solicitud rechazada",
+      body: reason || "Tu solicitud de comercio fue rechazada por NIVO.",
+      type: "account",
+      source: "dashboard_admin",
+    });
   }
 
   if (decision === "block") {
-    profileUpdate = {
+    batch.set(profileRef, {
+      active: false,
+      verified: false,
+      canReceiveDeliveryOrders: false,
+      isCurrentlyOpen: false,
+      openStatus: "forced_closed",
+      openStatusLabel: "Cerrado por NIVO",
       status: "blocked",
+      verification: {
+        status: "blocked",
+        adminNote: reason,
+        reviewedAt: now,
+        reviewedBy: adminId,
+      },
+      updatedAt: now,
+    }, { merge: true });
 
-      ...baseVerification,
+    batch.set(ownerRef, {
+      status: COMMERCE_USER_STATUSES.suspended,
+      updatedAt: now,
+    }, { merge: true });
 
-      "verification.status": "blocked",
-
-      canReceiveOrders: false,
-      isVisible: false,
-
-      updatedAt: serverTimestamp(),
-    };
-
-    userUpdate = {
-      status: "blocked",
-      updatedAt: serverTimestamp(),
-    };
-
-    action = "commerce_blocked";
-
-    notification = {
-      title: "Tu comercio fue bloqueado",
-      body: reason || "Contacta a soporte NIVO para más información.",
-      type: "commerce_blocked",
-    };
-  }
-
-  if (!action) {
-    throw new Error("Decisión de comercio no reconocida.");
-  }
-
-  batch.update(commerceRef, profileUpdate);
-  batch.update(userRef, userUpdate);
-
-  addAdminActionToBatch(batch, {
-    action,
-    targetCollection: COLLECTIONS.commerceProfiles,
-    targetId: commerceId,
-    targetRole: "commerce",
-    reason: reason || null,
-    before: auditSnapshot(commerce),
-    after: {
-      status: profileUpdate.status,
-      userStatus: userUpdate.status,
-      canReceiveOrders: profileUpdate.canReceiveOrders,
-      isVisible: profileUpdate.isVisible,
-    },
-    metadata: {
-      decision,
-    },
-  });
-
-  if (notification) {
     addNotificationToBatch(batch, {
-      uid: commerce.uid || commerce.ownerUid || commerceId,
-      title: notification.title,
-      body: notification.body,
-      type: notification.type,
-      targetRole: "commerce",
+      recipientId: ownerUid,
+      recipientRole: "commerce",
+      title: "Comercio bloqueado",
+      body: reason || "Tu comercio fue bloqueado por administración NIVO.",
+      type: "warning",
+      source: "dashboard_admin",
     });
   }
+
+  addAdminActionToBatch(batch, {
+    action: `commerce_${decision}`,
+    targetCollection: COLLECTIONS.commerceProfiles,
+    targetId: commerce.id,
+    targetRole: "commerce",
+    reason,
+  });
 
   await batch.commit();
 }
 
 /* =========================================================
-   USER STATUS / MAKE ADMIN
+   MAKE ADMIN
 ========================================================= */
 
-function confirmUserStatusChange(userId, nextStatus) {
-  const user = state.indexes.usersById.get(userId);
-  if (!user) return showToast("No se encontró el usuario.", "error");
-
-  const label = nextStatus === "active" ? "reactivar" : "bloquear";
-
-  openConfirmModal({
-    title: `Confirmar ${label}`,
-    message: `¿Confirmas que deseas ${label} la cuenta de ${user.fullName || user.email || userId}?`,
-    onConfirm: async () => {
-      await updateUserStatus(userId, nextStatus);
-    },
-  });
-}
-
-async function updateUserStatus(userId, nextStatus) {
-  const user = state.indexes.usersById.get(userId);
-  if (!user) throw new Error("No se encontró el usuario.");
-
-  const batch = writeBatch(state.db);
-  const userRef = doc(state.db, COLLECTIONS.users, userId);
-
-  batch.update(userRef, {
-    status: nextStatus,
-    updatedAt: serverTimestamp(),
-  });
-
-  addAdminActionToBatch(batch, {
-    action: nextStatus === "active" ? "user_reactivated" : "user_blocked",
-    targetCollection: COLLECTIONS.users,
-    targetId: userId,
-    targetRole: user.role || null,
-    reason: nextStatus === "active" ? "Reactivación administrativa" : "Bloqueo administrativo",
-    before: auditSnapshot(user),
-    after: {
-      status: nextStatus,
-    },
-  });
-
-  await batch.commit();
-  await loadDashboardData();
-
-  showToast("Estado de usuario actualizado.", "success", "Usuario actualizado");
-}
-
-function openMakeAdminModal(userId) {
-  const user = state.indexes.usersById.get(userId);
+function openMakeAdminModal(uid) {
+  const user = state.indexes.usersById.get(uid);
 
   if (!user) {
-    showToast("No se encontró el usuario seleccionado.", "error");
+    showToast("No se encontró el usuario seleccionado.", "error", "Admin");
     return;
   }
 
-  if (state.indexes.adminsById.has(userId)) {
-    showToast("Este usuario ya tiene perfil administrativo.", "warning", "Ya es admin");
-    return;
-  }
-
-  $("#makeAdminUid").value = userId;
+  $("#makeAdminUid").value = user.uid || user.id;
   $("#makeAdminEmail").value = user.email || "";
-  $("#makeAdminDisplayName").value = user.fullName || user.email || userId;
-  $("#makeAdminRole").value = "admin";
+  $("#makeAdminDisplayName").value = user.fullName || user.email || "";
+  $("#makeAdminRole").value = "";
 
-  $$("input[name='permissions']").forEach((checkbox) => {
-    checkbox.checked = false;
+  $$('input[name="permissions"]').forEach((input) => {
+    input.checked = false;
   });
-
-  applyDefaultPermissionsForAdminRole("admin");
 
   openModal("makeAdminModal");
 }
 
 function applyDefaultPermissionsForAdminRole(role) {
-  const presets = {
+  const permissionsByRole = {
     super_admin: ["users", "drivers", "commerce", "agents", "zones", "settings", "finance", "locations", "sanctions", "notifications"],
-    admin: ["users", "drivers", "commerce", "agents", "sanctions", "notifications"],
-    operations: ["users", "drivers", "commerce", "agents", "zones", "locations", "notifications"],
-    support: ["users", "drivers", "commerce", "agents", "sanctions", "notifications"],
-    finance: ["finance", "users", "drivers", "agents"],
-    reviewer: ["drivers", "commerce", "agents", "notifications"],
+    admin: ["users", "drivers", "commerce", "agents", "zones", "finance", "notifications"],
+    operations: ["drivers", "commerce", "agents", "zones", "locations"],
+    support: ["users", "drivers", "commerce", "notifications"],
+    finance: ["finance", "drivers", "commerce", "agents"],
+    reviewer: ["drivers", "commerce"],
     viewer: [],
   };
 
-  const allowed = new Set(presets[role] || []);
+  const permissions = new Set(permissionsByRole[role] || []);
 
-  $$("input[name='permissions']").forEach((checkbox) => {
-    checkbox.checked = allowed.has(checkbox.value);
+  $$('input[name="permissions"]').forEach((input) => {
+    input.checked = permissions.has(input.value);
   });
 }
 
 async function handleMakeAdminSubmit() {
-  const uid = normalizeText($("#makeAdminUid")?.value);
-  const email = normalizeEmail($("#makeAdminEmail")?.value);
-  const displayName = normalizeText($("#makeAdminDisplayName")?.value);
-  const role = normalizeText($("#makeAdminRole")?.value);
+  const uid = $("#makeAdminUid")?.value?.trim();
+  const email = $("#makeAdminEmail")?.value?.trim();
+  const displayName = $("#makeAdminDisplayName")?.value?.trim();
+  const role = $("#makeAdminRole")?.value?.trim();
 
-  if (!uid || !email || !displayName || !role) {
-    showToast("Faltan datos para crear el perfil admin.", "warning", "Datos incompletos");
-    return;
-  }
-
-  const user = state.indexes.usersById.get(uid);
-
-  if (!user) {
-    showToast("No se encontró el usuario base.", "error");
+  if (!uid || !role) {
+    showToast("Selecciona usuario y rol administrativo.", "error", "Admin incompleto");
     return;
   }
 
   const permissions = {};
-
-  $$("input[name='permissions']").forEach((checkbox) => {
-    permissions[checkbox.value] = checkbox.checked === true;
+  $$('input[name="permissions"]').forEach((input) => {
+    permissions[input.value] = input.checked;
   });
 
   try {
-    setFormLoading("makeAdminForm", true);
+    setModalBusy("makeAdminModal", true);
 
     const batch = writeBatch(state.db);
     const adminRef = doc(state.db, COLLECTIONS.adminProfiles, uid);
 
-    const adminProfile = {
+    batch.set(adminRef, {
       uid,
       email,
       displayName,
@@ -3147,284 +2728,209 @@ async function handleMakeAdminSubmit() {
       permissions,
       createdAt: serverTimestamp(),
       updatedAt: serverTimestamp(),
+      createdBy: state.adminContext?.uid || state.firebaseUser?.uid || "",
+      createdByEmail: state.adminContext?.email || state.firebaseUser?.email || "",
       lastLoginAt: null,
-      createdBy: state.firebaseUser.uid,
-      updatedBy: state.firebaseUser.uid,
-    };
-
-    batch.set(adminRef, adminProfile);
+    }, { merge: true });
 
     addAdminActionToBatch(batch, {
-      action: "admin_profile_created",
+      action: "make_admin",
       targetCollection: COLLECTIONS.adminProfiles,
       targetId: uid,
-      targetRole: role,
-      reason: "Usuario convertido en administrador desde dashboard",
-      before: null,
-      after: {
-        uid,
-        email,
-        displayName,
-        role,
-        status: "active",
-        permissions,
-      },
-      metadata: {
-        baseUserRole: user.role || null,
-        baseUserStatus: user.status || null,
-      },
+      targetRole: "admin",
+      reason: `Rol asignado: ${role}`,
     });
 
     await batch.commit();
 
     closeModal("makeAdminModal");
+    showToast("Admin creado o actualizado correctamente.", "success", "Admin guardado");
     await loadDashboardData();
-
-    showToast("Perfil administrativo creado correctamente.", "success", "Admin creado");
   } catch (error) {
     console.error("[NIVO Dashboard] Error creando admin:", error);
-    showToast(
-      error.message || "No se pudo crear el perfil administrativo. Revisa permisos owner/super_admin.",
-      "error",
-      "Error creando admin"
-    );
+    showToast(error.message || "No se pudo crear el admin.", "error", "Error");
   } finally {
-    setFormLoading("makeAdminForm", false);
+    setModalBusy("makeAdminModal", false);
   }
 }
 
+async function confirmUserStatusChange(uid, status) {
+  const user = state.indexes.usersById.get(uid);
+
+  if (!user) {
+    showToast("No se encontró el usuario.", "error", "Usuario");
+    return;
+  }
+
+  openConfirmModal({
+    message: `¿Confirmas cambiar el estado de ${user.fullName || user.email || uid} a ${STATUS_LABELS[status] || status}?`,
+    onAccept: async () => {
+      await updateDoc(doc(state.db, COLLECTIONS.users, uid), {
+        status,
+        updatedAt: serverTimestamp(),
+      });
+
+      showToast("Estado actualizado.", "success", "Usuario");
+      await loadDashboardData();
+    },
+  });
+}
+
 /* =========================================================
-   ZONES
+   ZONE / RIDE TYPE
 ========================================================= */
 
-function openZoneModal(zoneId = null) {
+function openZoneModal(zoneId = "") {
   const zone = zoneId ? state.indexes.zonesById.get(zoneId) : null;
 
   $("#zoneId").value = zone?.id || "";
-  $("#zoneCountry").value = zone?.country || "SV";
+  $("#zoneCountry").value = zone?.country || DEFAULT_COUNTRY;
   $("#zoneDepartment").value = zone?.department || "";
   $("#zoneMunicipality").value = zone?.municipality || "";
   $("#zoneDisplayName").value = zone?.displayName || "";
 
-  $("#zoneServiceRide").checked = get(zone, "enabledServices.ride", false);
-  $("#zoneServiceDelivery").checked = get(zone, "enabledServices.delivery", false);
-  $("#zoneServicePackage").checked = get(zone, "enabledServices.package", false);
-  $("#zoneServiceSchool").checked = get(zone, "enabledServices.school", false);
+  const services = normalizeServices(zone?.enabledServices || {});
+  const rideTypes = normalizeEnabledRideTypes(zone?.enabledRideTypes || fareTransportEnabled(zone?.id));
 
-  $("#zoneTransportCar").checked = get(zone, "transportConfigs.car.active", false);
-  $("#zoneTransportMotorcycle").checked = get(zone, "transportConfigs.motorcycle.active", false);
-  $("#zoneTransportMototaxi").checked = get(zone, "transportConfigs.mototaxi.active", false);
-  $("#zoneTransportQute").checked = get(zone, "transportConfigs.qute.active", false);
+  $("#zoneServiceRide").checked = services.ride;
+  $("#zoneServiceDelivery").checked = services.delivery;
+  $("#zoneServicePackage").checked = services.package;
+  $("#zoneServiceSchool").checked = services.school;
+
+  $("#zoneTransportCar").checked = rideTypes.car;
+  $("#zoneTransportMotorcycle").checked = rideTypes.motorcycle;
+  $("#zoneTransportMototaxi").checked = rideTypes.mototaxi;
+  $("#zoneTransportQute").checked = rideTypes.qute;
 
   $("#zoneActive").checked = zone?.active === true;
-
-  setText("zoneModalTitle", zone ? "Editar zona operativa" : "Crear zona operativa");
 
   openModal("zoneModal");
 }
 
 async function handleZoneSubmit() {
-  const existingId = normalizeText($("#zoneId")?.value);
-  const country = normalizeText($("#zoneCountry")?.value || "SV").toUpperCase();
-  const department = normalizeText($("#zoneDepartment")?.value);
-  const municipality = normalizeText($("#zoneMunicipality")?.value);
-  const displayName = normalizeText($("#zoneDisplayName")?.value);
-  const zoneId = existingId || buildServiceZoneId(country, department, municipality);
+  const currentId = $("#zoneId")?.value?.trim();
+  const country = ($("#zoneCountry")?.value || DEFAULT_COUNTRY).trim().toUpperCase();
+  const department = $("#zoneDepartment")?.value?.trim();
+  const municipality = $("#zoneMunicipality")?.value?.trim();
+  const displayName = $("#zoneDisplayName")?.value?.trim();
 
-  if (!country || !department || !municipality || !displayName || !zoneId) {
-    showToast("Completa país, departamento, municipio y nombre visible.", "warning", "Zona incompleta");
+  if (!country || !department || !municipality || !displayName) {
+    showToast("Completa país, departamento, municipio y nombre visible.", "error", "Zona incompleta");
     return;
   }
 
-  const exists = state.indexes.zonesById.has(zoneId);
+  const zoneId = currentId || buildZoneId(country, department, municipality);
 
-  const data = {
-    id: zoneId,
-    serviceZoneId: zoneId,
-    country,
-    department,
-    municipality,
-    displayName,
-    currencyCode: "USD",
-    active: $("#zoneActive")?.checked === true,
-
-    enabledServices: {
-      ride: $("#zoneServiceRide")?.checked === true,
-      delivery: $("#zoneServiceDelivery")?.checked === true,
-      package: $("#zoneServicePackage")?.checked === true,
-      school: $("#zoneServiceSchool")?.checked === true,
-    },
-
-    transportConfigs: {
-      car: buildDefaultTransportConfig("car", $("#zoneTransportCar")?.checked === true),
-      motorcycle: buildDefaultTransportConfig("motorcycle", $("#zoneTransportMotorcycle")?.checked === true),
-      mototaxi: buildDefaultTransportConfig("mototaxi", $("#zoneTransportMototaxi")?.checked === true),
-      qute: buildDefaultTransportConfig("qute", $("#zoneTransportQute")?.checked === true),
-    },
-
-    platformCommissionRate: 0,
-    updatedAt: serverTimestamp(),
+  const enabledServices = {
+    ride: $("#zoneServiceRide")?.checked === true,
+    delivery: $("#zoneServiceDelivery")?.checked === true,
+    package: $("#zoneServicePackage")?.checked === true,
+    school: $("#zoneServiceSchool")?.checked === true,
   };
 
-  if (!exists) {
-    data.createdAt = serverTimestamp();
-  }
+  const enabledRideTypes = {
+    car: $("#zoneTransportCar")?.checked === true,
+    motorcycle: $("#zoneTransportMotorcycle")?.checked === true,
+    mototaxi: $("#zoneTransportMototaxi")?.checked === true,
+    qute: $("#zoneTransportQute")?.checked === true,
+  };
 
   try {
-    setFormLoading("zoneForm", true);
+    setModalBusy("zoneModal", true);
 
     const batch = writeBatch(state.db);
     const zoneRef = doc(state.db, COLLECTIONS.serviceZones, zoneId);
+    const fareRef = doc(state.db, COLLECTIONS.fareConfigs, zoneId);
 
-    batch.set(zoneRef, data, { merge: true });
+    batch.set(zoneRef, {
+      id: zoneId,
+      serviceZoneId: zoneId,
+      country,
+      department,
+      municipality,
+      displayName,
+      active: $("#zoneActive")?.checked === true,
+      enabledServices,
+      enabledRideTypes,
+      updatedAt: serverTimestamp(),
+      createdAt: currentId ? undefined : serverTimestamp(),
+    }, { merge: true });
+
+    batch.set(fareRef, {
+      id: zoneId,
+      serviceZoneId: zoneId,
+      country,
+      department,
+      municipality,
+      currencyCode: DEFAULT_CURRENCY,
+      active: $("#zoneActive")?.checked === true,
+      platformCommissionRate: 0,
+      transportConfigs: defaultTransportConfigs(enabledRideTypes),
+      delivery: {
+        enabled: enabledServices.delivery,
+        pricingMode: "city_fixed_driver_quote_outside",
+        cityFixedFee: 1.5,
+        cityFixedMaxDistanceKm: 4,
+        outsideCityMinSuggestedFee: 2,
+        outsideCityRequiresDriverQuote: true,
+        updatedAt: serverTimestamp(),
+        updatedBy: state.adminContext?.uid || "",
+      },
+      commissions: {
+        ride: defaultCommission("ride_fare"),
+        delivery: defaultCommission("delivery_fee"),
+        package: defaultCommission("package_fee"),
+      },
+      updatedAt: serverTimestamp(),
+      createdAt: currentId ? undefined : serverTimestamp(),
+    }, { merge: true });
 
     addAdminActionToBatch(batch, {
-      action: exists ? "service_zone_updated" : "service_zone_created",
+      action: currentId ? "update_zone" : "create_zone",
       targetCollection: COLLECTIONS.serviceZones,
       targetId: zoneId,
-      targetRole: null,
-      reason: exists ? "Zona actualizada desde dashboard" : "Zona creada desde dashboard",
-      before: exists ? auditSnapshot(state.indexes.zonesById.get(zoneId)) : null,
-      after: {
-        country,
-        department,
-        municipality,
-        displayName,
-        active: data.active,
-        enabledServices: data.enabledServices,
-      },
+      targetRole: "zone",
+      reason: displayName,
     });
 
     await batch.commit();
 
     closeModal("zoneModal");
+    showToast("Zona y fare_config guardados correctamente.", "success", "Zona guardada");
     await loadDashboardData();
-
-    showToast("Zona guardada correctamente.", "success", "Zona actualizada");
   } catch (error) {
     console.error("[NIVO Dashboard] Error guardando zona:", error);
     showToast(error.message || "No se pudo guardar la zona.", "error", "Error");
   } finally {
-    setFormLoading("zoneForm", false);
+    setModalBusy("zoneModal", false);
   }
 }
 
-function buildDefaultTransportConfig(type, active) {
-  const base = {
-    active,
-    transportId: type,
-    transportTitle: vehicleLabel(type),
-    maxPassengers: type === "car" ? 4 : 1,
-    baseFare: type === "car" ? 1.0 : 0.5,
-    minimumFare: type === "car" ? 1.5 : 0.5,
-    pricePerKm: type === "car" ? 0.55 : 0,
-    pricePerMinute: type === "car" ? 0.07 : 0,
-    chargesPerPassenger: type !== "car",
-    requiresPassengerSelection: type !== "car",
-    maxAutoPricedZoneLevel: 3,
-    outOfZoneRequiresConfirmation: true,
-    zoneFixedFareIsPerPassenger: type !== "car",
-  };
-
-  if (type === "mototaxi" || type === "qute") {
-    base.urbanFarePerPassenger = 0.5;
-    base.outOfUrbanFarePerPassenger = 1.0;
-  }
-
-  return base;
-}
-
-/* =========================================================
-   RIDE TYPES
-========================================================= */
-
-function openRideTypeModal(typeId = null) {
-  const type = typeId ? state.indexes.rideTypesById.get(typeId) : null;
-
-  $("#rideTypeId").value = type?.id || "";
-  $("#rideTypeId").disabled = Boolean(type);
-  $("#rideTypeTitle").value = type?.title || "";
-  $("#rideTypeDescription").value = type?.description || "";
-  $("#rideTypeMaxPassengers").value = type?.maxPassengers || 1;
-  $("#rideTypeSortOrder").value = type?.sortOrder || 0;
-  $("#rideTypeActiveGlobally").checked = type?.activeGlobally === true;
-  $("#rideTypeChargesPerPassenger").checked = type?.chargesPerPassenger === true;
-  $("#rideTypeRequiresPassengerSelection").checked = type?.requiresPassengerSelection === true;
-
-  setText("rideTypeModalTitle", type ? "Editar categoría" : "Crear categoría");
+function openRideTypeModal() {
+  $("#rideTypeId").value = "";
+  $("#rideTypeTitle").value = "";
+  $("#rideTypeDescription").value = "";
+  $("#rideTypeMaxPassengers").value = "1";
+  $("#rideTypeSortOrder").value = "0";
+  $("#rideTypeActiveGlobally").checked = false;
+  $("#rideTypeChargesPerPassenger").checked = false;
+  $("#rideTypeRequiresPassengerSelection").checked = false;
 
   openModal("rideTypeModal");
 }
 
-async function handleRideTypeSubmit() {
-  const id = slugify($("#rideTypeId")?.value);
-  const existing = state.indexes.rideTypesById.get(id);
+function handleRideTypeSubmit() {
+  showToast(
+    "Las categorías de transporte actuales se derivan desde fare_configs.transportConfigs por zona. No se guardará una colección global ride_types todavía.",
+    "info",
+    "Categorías transporte"
+  );
 
-  const title = normalizeText($("#rideTypeTitle")?.value);
-  const description = normalizeText($("#rideTypeDescription")?.value);
-  const maxPassengers = Number($("#rideTypeMaxPassengers")?.value || 1);
-  const sortOrder = Number($("#rideTypeSortOrder")?.value || 0);
-
-  if (!id || !title) {
-    showToast("Ingresa ID y nombre visible de la categoría.", "warning", "Categoría incompleta");
-    return;
-  }
-
-  const data = {
-    id,
-    title,
-    description: description || null,
-    activeGlobally: $("#rideTypeActiveGlobally")?.checked === true,
-    chargesPerPassenger: $("#rideTypeChargesPerPassenger")?.checked === true,
-    requiresPassengerSelection: $("#rideTypeRequiresPassengerSelection")?.checked === true,
-    maxPassengers: Number.isFinite(maxPassengers) && maxPassengers > 0 ? maxPassengers : 1,
-    sortOrder: Number.isFinite(sortOrder) ? sortOrder : 0,
-    updatedAt: serverTimestamp(),
-  };
-
-  if (!existing) {
-    data.createdAt = serverTimestamp();
-  }
-
-  try {
-    setFormLoading("rideTypeForm", true);
-
-    const batch = writeBatch(state.db);
-    const ref = doc(state.db, COLLECTIONS.rideTypes, id);
-
-    batch.set(ref, data, { merge: true });
-
-    addAdminActionToBatch(batch, {
-      action: existing ? "ride_type_updated" : "ride_type_created",
-      targetCollection: COLLECTIONS.rideTypes,
-      targetId: id,
-      reason: existing ? "Categoría actualizada desde dashboard" : "Categoría creada desde dashboard",
-      before: existing ? auditSnapshot(existing) : null,
-      after: {
-        id,
-        title,
-        activeGlobally: data.activeGlobally,
-        maxPassengers: data.maxPassengers,
-      },
-    });
-
-    await batch.commit();
-
-    $("#rideTypeId").disabled = false;
-    closeModal("rideTypeModal");
-    await loadDashboardData();
-
-    showToast("Categoría guardada correctamente.", "success", "Categoría actualizada");
-  } catch (error) {
-    console.error("[NIVO Dashboard] Error guardando categoría:", error);
-    showToast(error.message || "No se pudo guardar la categoría.", "error", "Error");
-  } finally {
-    setFormLoading("rideTypeForm", false);
-  }
+  closeModal("rideTypeModal");
 }
 
 /* =========================================================
-   NOTIFICATIONS
+   NOTIFICACIONES
 ========================================================= */
 
 function openNotificationModal() {
@@ -3438,256 +2944,146 @@ function openNotificationModal() {
 }
 
 function openNotificationFromDrawer() {
-  const active = state.activeDetail;
+  const detail = state.activeDetail;
 
-  if (!active) {
+  if (!detail) {
     openNotificationModal();
     return;
   }
 
-  const data = active.data || {};
+  openNotificationModal();
 
-  $("#notificationTargetType").value = "single_uid";
-  $("#notificationTargetValue").value = data.uid || data.ownerUid || data.driverId || data.agentId || active.id;
-  $("#notificationTitle").value = "";
-  $("#notificationBody").value = "";
-  $("#notificationType").value = "account";
+  const recipient = resolveRecipientFromDetail(detail);
 
-  openModal("notificationModal");
+  if (recipient) {
+    $("#notificationTargetType").value = "single_uid";
+    $("#notificationTargetValue").value = recipient.id;
+  }
 }
 
 async function handleNotificationSubmit() {
-  const targetType = normalizeText($("#notificationTargetType")?.value);
-  const targetValue = normalizeText($("#notificationTargetValue")?.value);
-  const title = normalizeText($("#notificationTitle")?.value);
-  const body = normalizeText($("#notificationBody")?.value);
-  const type = normalizeText($("#notificationType")?.value || "info");
+  const targetType = $("#notificationTargetType")?.value;
+  const targetValue = $("#notificationTargetValue")?.value?.trim();
+  const title = $("#notificationTitle")?.value?.trim();
+  const body = $("#notificationBody")?.value?.trim();
+  const type = $("#notificationType")?.value || "info";
 
   if (!targetType || !title || !body) {
-    showToast("Completa destino, título y mensaje.", "warning", "Notificación incompleta");
+    showToast("Completa destino, título y mensaje.", "error", "Notificación incompleta");
+    return;
+  }
+
+  const recipients = notificationRecipients(targetType, targetValue);
+
+  if (!recipients.length) {
+    showToast("No se encontraron destinatarios para esta notificación.", "error", "Sin destinatarios");
     return;
   }
 
   try {
-    setFormLoading("notificationForm", true);
+    setModalBusy("notificationModal", true);
 
-    const ref = doc(collection(state.db, COLLECTIONS.notifications));
+    const batch = writeBatch(state.db);
 
-    const data = {
-      notificationId: ref.id,
-      targetType,
-      targetValue: targetValue || null,
-      uid: targetType === "single_uid" ? targetValue : null,
-      userId: targetType === "single_uid" ? targetValue : null,
-      title,
-      body,
-      type,
-      read: false,
-      status: "created",
-      createdBy: state.firebaseUser.uid,
-      createdByEmail: state.firebaseUser.email || null,
-      createdAt: serverTimestamp(),
-    };
-
-    await setDoc(ref, data);
-
-    await createAdminAction({
-      action: "notification_created",
-      targetCollection: COLLECTIONS.notifications,
-      targetId: ref.id,
-      reason: `Notificación creada para ${targetType}`,
-      after: {
-        targetType,
-        targetValue: targetValue || null,
+    recipients.forEach((recipient) => {
+      addNotificationToBatch(batch, {
+        recipientId: recipient.id,
+        recipientRole: recipient.role,
         title,
+        body,
         type,
-      },
+        source: "dashboard_manual",
+      });
     });
 
-    closeModal("notificationModal");
-    await loadDashboardData();
+    addAdminActionToBatch(batch, {
+      action: "send_notification",
+      targetCollection: COLLECTIONS.notifications,
+      targetId: targetValue || targetType,
+      targetRole: "notification",
+      reason: `${title} (${recipients.length} destinatario/s)`,
+    });
 
-    showToast("Notificación creada correctamente.", "success", "Notificación guardada");
+    await batch.commit();
+
+    closeModal("notificationModal");
+    showToast(`Notificación creada para ${recipients.length} destinatario(s).`, "success", "Notificación");
+    await loadDashboardData();
   } catch (error) {
     console.error("[NIVO Dashboard] Error creando notificación:", error);
     showToast(error.message || "No se pudo crear la notificación.", "error", "Error");
   } finally {
-    setFormLoading("notificationForm", false);
+    setModalBusy("notificationModal", false);
   }
-}
-
-/* =========================================================
-   DRAWER QUICK ACTIONS
-========================================================= */
-
-function openReviewFromDrawer(decision) {
-  const active = state.activeDetail;
-
-  if (!active || !["driver", "commerce"].includes(active.type)) {
-    showToast("Esta acción solo aplica para conductores o comercios.", "warning");
-    return;
-  }
-
-  openReviewModal({
-    targetId: active.id,
-    targetCollection: active.collection,
-    targetRole: active.type,
-    decision,
-  });
-}
-
-/* =========================================================
-   AUDITORÍA / BATCH HELPERS
-========================================================= */
-
-function addAdminActionToBatch(batch, payload) {
-  const actionRef = doc(collection(state.db, COLLECTIONS.adminActions));
-
-  batch.set(actionRef, sanitizeForFirestore({
-    action: payload.action,
-    adminId: state.firebaseUser.uid,
-    adminEmail: state.firebaseUser.email || state.adminContext?.email || null,
-    targetCollection: payload.targetCollection || null,
-    targetId: payload.targetId || null,
-    targetRole: payload.targetRole || null,
-    reason: payload.reason || null,
-    before: payload.before || null,
-    after: payload.after || null,
-    metadata: payload.metadata || null,
-    createdAt: serverTimestamp(),
-  }));
-}
-
-async function createAdminAction(payload) {
-  const actionRef = doc(collection(state.db, COLLECTIONS.adminActions));
-
-  await setDoc(actionRef, sanitizeForFirestore({
-    action: payload.action,
-    adminId: state.firebaseUser.uid,
-    adminEmail: state.firebaseUser.email || state.adminContext?.email || null,
-    targetCollection: payload.targetCollection || null,
-    targetId: payload.targetId || null,
-    targetRole: payload.targetRole || null,
-    reason: payload.reason || null,
-    before: payload.before || null,
-    after: payload.after || null,
-    metadata: payload.metadata || null,
-    createdAt: serverTimestamp(),
-  }));
 }
 
 function addNotificationToBatch(batch, payload) {
-  const notificationRef = doc(collection(state.db, COLLECTIONS.notifications));
+  const recipientId = payload.recipientId || "";
+  const recipientRole = payload.recipientRole || "user";
+  const ref = doc(collection(state.db, COLLECTIONS.notifications));
 
-  batch.set(notificationRef, sanitizeForFirestore({
-    notificationId: notificationRef.id,
-    uid: payload.uid,
-    userId: payload.uid,
-    targetRole: payload.targetRole || null,
-    title: payload.title,
-    body: payload.body,
+  batch.set(ref, {
+    notificationId: ref.id,
+    recipientId,
+    recipientRole,
+    uid: recipientId,
+    userId: recipientId,
+    targetRole: recipientRole,
+    title: payload.title || "NIVO",
+    body: payload.body || "",
+    message: payload.body || "",
     type: payload.type || "info",
+    source: payload.source || "dashboard",
+    status: "unread",
     read: false,
-    status: "created",
-    createdBy: state.firebaseUser.uid,
-    createdByEmail: state.firebaseUser.email || null,
+    readAt: null,
     createdAt: serverTimestamp(),
-  }));
+    createdBy: state.adminContext?.uid || state.firebaseUser?.uid || "",
+    createdByEmail: state.adminContext?.email || state.firebaseUser?.email || "",
+  });
 }
 
-function auditSnapshot(data) {
-  if (!data) return null;
+function setNotificationBadge() {
+  const badge = $("#notificationBadge");
 
-  return sanitizeForFirestore({
-    id: data.id || null,
-    uid: data.uid || null,
-    email: data.email || null,
-    fullName: data.fullName || data.ownerName || data.businessName || null,
-    role: data.role || null,
-    status: data.status || null,
-    serviceZoneId: data.serviceZoneId || data.registeredZoneId || null,
-    vehicleType: data.vehicleType || null,
-    canReceiveOrders: data.canReceiveOrders ?? null,
-    isVisible: data.isVisible ?? null,
+  if (!badge) return;
+
+  const unread = state.notifications.filter((notification) => {
+    return notification.read !== true && notification.status !== "read";
+  }).length;
+
+  badge.textContent = String(unread);
+  badge.hidden = unread <= 0;
+}
+
+/* =========================================================
+   ADMIN ACTIONS / AUDIT
+========================================================= */
+
+function addAdminActionToBatch(batch, payload) {
+  const ref = doc(collection(state.db, COLLECTIONS.adminActions));
+
+  batch.set(ref, {
+    actionId: ref.id,
+    action: payload.action || "admin_action",
+    targetCollection: payload.targetCollection || "",
+    targetId: payload.targetId || "",
+    targetRole: payload.targetRole || "",
+    reason: payload.reason || "",
+    adminId: state.adminContext?.uid || state.firebaseUser?.uid || "",
+    adminEmail: state.adminContext?.email || state.firebaseUser?.email || "",
+    createdAt: serverTimestamp(),
   });
 }
 
 /* =========================================================
-   MODALS / CONFIRM / IMAGE VIEWER
+   CONFIRM MODAL
 ========================================================= */
 
-function openModal(id) {
-  const modal = document.getElementById(id);
-  if (!modal) return;
-
-  modal.classList.add("is-open");
-  modal.setAttribute("aria-hidden", "false");
-  document.body.classList.add("is-locked");
-
-  const firstInput = $("input, select, textarea, button", modal);
-  if (firstInput) {
-    window.setTimeout(() => firstInput.focus(), 60);
-  }
-}
-
-function closeModal(id) {
-  const modal = document.getElementById(id);
-  if (!modal) return;
-
-  modal.classList.remove("is-open");
-  modal.setAttribute("aria-hidden", "true");
-
-  if (!$(".modal.is-open") && !$("#detailDrawer")?.classList.contains("is-open")) {
-    document.body.classList.remove("is-locked");
-  }
-
-  if (id === "rideTypeModal") {
-    const rideTypeId = $("#rideTypeId");
-    if (rideTypeId) rideTypeId.disabled = false;
-  }
-}
-
-function closeAllModals() {
-  $$(".modal.is-open").forEach((modal) => {
-    modal.classList.remove("is-open");
-    modal.setAttribute("aria-hidden", "true");
-  });
-
-  if (!$("#detailDrawer")?.classList.contains("is-open")) {
-    document.body.classList.remove("is-locked");
-  }
-
-  const rideTypeId = $("#rideTypeId");
-  if (rideTypeId) rideTypeId.disabled = false;
-}
-
-function openConfirmModal({ title, message, onConfirm }) {
-  setText("confirmModalTitle", title || "Confirmar acción");
+function openConfirmModal({ message, onAccept }) {
+  state.pendingConfirm = onAccept;
   setText("confirmModalMessage", message || "¿Confirmas que deseas realizar esta acción?");
-
-  state.pendingConfirm = onConfirm;
-
   openModal("confirmModal");
-
-  const acceptBtn = $("#confirmModalAcceptBtn");
-  if (acceptBtn) {
-    acceptBtn.onclick = async () => {
-      try {
-        acceptBtn.disabled = true;
-
-        if (typeof state.pendingConfirm === "function") {
-          await state.pendingConfirm();
-        }
-
-        closeConfirmModal();
-      } catch (error) {
-        console.error("[NIVO Dashboard] Error en confirmación:", error);
-        showToast(error.message || "No se pudo realizar la acción.", "error", "Error");
-      } finally {
-        acceptBtn.disabled = false;
-      }
-    };
-  }
 }
 
 function closeConfirmModal() {
@@ -3695,369 +3091,1188 @@ function closeConfirmModal() {
   closeModal("confirmModal");
 }
 
-function openImageViewer(src, title = "Documento") {
-  if (!src) {
-    showToast("No hay imagen para mostrar.", "warning");
+$("#confirmModalAcceptBtn")?.addEventListener("click", async () => {
+  const action = state.pendingConfirm;
+
+  if (!action) {
+    closeConfirmModal();
     return;
   }
 
+  try {
+    await action();
+  } catch (error) {
+    console.error("[NIVO Dashboard] Error confirmando acción:", error);
+    showToast(error.message || "No se pudo completar la acción.", "error", "Error");
+  } finally {
+    closeConfirmModal();
+  }
+});
+
+/* =========================================================
+   UI SHELL
+========================================================= */
+
+function setAdminUi(context) {
+  setText("sidebarAdminName", context.displayName || context.email || "Admin NIVO");
+  setText("sidebarAdminEmail", context.email || "Sin correo");
+  setText("sidebarAdminRole", context.adminRole || "admin");
+}
+
+function showDashboardShell() {
+  const gate = $("#dashboardAuthGate");
+  const denied = $("#dashboardAccessDenied");
+  const shell = $("#dashboardShell");
+
+  if (gate) gate.hidden = true;
+  if (denied) denied.hidden = true;
+  if (shell) shell.hidden = false;
+}
+
+function showAccessDenied(message) {
+  const gate = $("#dashboardAuthGate");
+  const denied = $("#dashboardAccessDenied");
+  const shell = $("#dashboardShell");
+
+  if (gate) gate.hidden = true;
+  if (shell) shell.hidden = true;
+
+  if (denied) {
+    denied.hidden = false;
+
+    const paragraph = denied.querySelector("p:not(.eyebrow)");
+
+    if (paragraph && message) {
+      paragraph.textContent = message;
+    }
+  }
+}
+
+function setDashboardLoading(isLoading) {
+  const gate = $("#dashboardAuthGate");
+
+  if (gate && !$("#dashboardShell")?.hidden) {
+    gate.hidden = true;
+  }
+
+  document.body.classList.toggle("dashboard-loading", isLoading);
+}
+
+function showSection(sectionName) {
+  if (!sectionName) return;
+
+  state.currentSection = sectionName;
+
+  $$(".nav-item").forEach((item) => {
+    item.classList.toggle("active", item.dataset.sectionTarget === sectionName);
+  });
+
+  $$(".dashboard-section").forEach((section) => {
+    const active = section.dataset.section === sectionName;
+    section.classList.toggle("active", active);
+    section.hidden = !active;
+  });
+
+  const [title, breadcrumb] = SECTION_META[sectionName] || SECTION_META.overview;
+
+  setText("dashboardPageTitle", title);
+  setText("dashboardBreadcrumb", breadcrumb);
+
+  document.body.classList.remove("sidebar-open", "is-locked");
+
+  renderCurrentSection();
+
+  $("#dashboardMain")?.focus({ preventScroll: true });
+}
+
+function setDriverQuickFilter(filter) {
+  state.currentDriverQuickFilter = filter || "all";
+
+  $$("[data-driver-filter]").forEach((button) => {
+    button.classList.toggle("active", button.dataset.driverFilter === state.currentDriverQuickFilter);
+  });
+
+  renderDriversTable();
+}
+
+/* =========================================================
+   MODAL HELPERS
+========================================================= */
+
+function openModal(id) {
+  const modal = document.getElementById(id);
+
+  if (!modal) return;
+
+  modal.classList.add("open");
+  modal.setAttribute("aria-hidden", "false");
+  document.body.classList.add("is-locked");
+
+  const focusable = modal.querySelector("input, select, textarea, button");
+
+  if (focusable) {
+    window.setTimeout(() => focusable.focus(), 50);
+  }
+}
+
+function closeModal(id) {
+  const modal = document.getElementById(id);
+
+  if (!modal) return;
+
+  modal.classList.remove("open");
+  modal.setAttribute("aria-hidden", "true");
+  document.body.classList.remove("is-locked");
+}
+
+function closeAllModals() {
+  $$(".modal.open").forEach((modal) => {
+    modal.classList.remove("open");
+    modal.setAttribute("aria-hidden", "true");
+  });
+
+  document.body.classList.remove("is-locked");
+}
+
+function setModalBusy(id, busy) {
+  const modal = document.getElementById(id);
+
+  if (!modal) return;
+
+  modal.classList.toggle("is-busy", busy);
+
+  $$("button, input, textarea, select", modal).forEach((element) => {
+    element.disabled = busy;
+  });
+}
+
+/* =========================================================
+   IMAGE VIEWER
+========================================================= */
+
+function openImageViewer(src, title = "Documento") {
+  if (!src) {
+    showToast("No hay imagen disponible.", "warning", "Documento");
+    return;
+  }
+
+  const modal = $("#imageViewerModal");
+  const img = $("#imageViewerImg");
+
   setText("imageViewerTitle", title || "Documento");
 
-  const img = $("#imageViewerImg");
   if (img) {
     img.src = src;
     img.alt = title || "Documento seleccionado";
   }
 
-  const modal = $("#imageViewerModal");
-  if (!modal) return;
-
-  modal.classList.add("is-open");
-  modal.setAttribute("aria-hidden", "false");
-  document.body.classList.add("is-locked");
+  if (modal) {
+    modal.classList.add("open");
+    modal.setAttribute("aria-hidden", "false");
+    document.body.classList.add("is-locked");
+  }
 }
 
 function closeImageViewer() {
   const modal = $("#imageViewerModal");
-  if (!modal) return;
-
-  modal.classList.remove("is-open");
-  modal.setAttribute("aria-hidden", "true");
-
   const img = $("#imageViewerImg");
+
   if (img) {
     img.src = "";
   }
 
-  if (!$(".modal.is-open") && !$("#detailDrawer")?.classList.contains("is-open")) {
+  if (modal) {
+    modal.classList.remove("open");
+    modal.setAttribute("aria-hidden", "true");
     document.body.classList.remove("is-locked");
   }
 }
 
 /* =========================================================
-   FILTERS / ZONES
+   HTML DETAILS
 ========================================================= */
 
-function populateZoneFilters() {
-  const filters = [
-    "usersZoneFilter",
-    "driversZoneFilter",
-    "commerceZoneFilter",
-  ];
+function profileSummaryHtml(item) {
+  return `
+    <div class="detail-grid">
+      ${detailItem("ID", item.id)}
+      ${detailItem("Nombre", item.fullName || item.displayName || item.businessName)}
+      ${detailItem("Email", item.email)}
+      ${detailItem("Teléfono", item.phone)}
+      ${detailItem("Rol", ROLE_LABELS[item.role] || item.role)}
+      ${detailItem("Estado", STATUS_LABELS[item.status] || item.status)}
+      ${detailItem("Zona", formatZone(userZone(item) || item.serviceZoneId || item.zoneId, item.department, item.municipality))}
+      ${detailItem("Creado", date(item.createdAt))}
+    </div>
+  `;
+}
 
-  const options = state.serviceZones
-    .slice()
-    .sort((a, b) => String(a.displayName || a.id).localeCompare(String(b.displayName || b.id)))
-    .map((zone) => {
-      const label = zone.displayName || `${zone.department || ""} ${zone.municipality || ""}`.trim() || zone.id;
-      return `<option value="${escapeAttr(zone.id)}">${escapeHtml(label)}</option>`;
-    })
-    .join("");
+function driverSummaryHtml(driver, vehicle, wallet) {
+  const driverId = driver.driverId || driver.uid || driver.id;
 
-  filters.forEach((id) => {
-    const select = document.getElementById(id);
-    if (!select) return;
+  return `
+    <div class="detail-grid">
+      ${detailItem("Driver ID", driverId)}
+      ${detailItem("Nombre", driver.fullName)}
+      ${detailItem("Email", driver.email)}
+      ${detailItem("Teléfono", driver.phone)}
+      ${detailItem("Estado", STATUS_LABELS[driver.status] || driver.status)}
+      ${detailItem("Zona", formatZone(driver.serviceZoneId, driver.department, driver.municipality))}
+      ${detailItem("Vehículo", driver.vehicleLabel || vehicleLabel(driver.vehicleType))}
+      ${detailItem("Placa", vehicle?.plate || get(driver, "documentNumbers.plate", ""))}
+      ${detailItem("Servicios", servicesText(driver.enabledServices))}
+      ${detailItem("Wallet", wallet ? money(walletBalance(wallet)) : "Pendiente")}
+      ${detailItem("Rating", driverRating(driver))}
+      ${detailItem("Creado", date(driver.createdAt))}
+    </div>
+  `;
+}
 
-    const current = select.value || "all";
-    select.innerHTML = `<option value="all">Todas las zonas</option>${options}`;
-    select.value = current;
-  });
+function driverOperationHtml(driver, vehicle) {
+  return `
+    <div class="detail-grid">
+      ${detailItem("Online", get(driver, "availability.isOnline") ? "Sí" : "No")}
+      ${detailItem("Disponible", get(driver, "availability.isAvailable") ? "Sí" : "No")}
+      ${detailItem("Puede recibir tareas", get(driver, "policy.canReceiveTasks") ? "Sí" : "No")}
+      ${detailItem("Sanción actual", get(driver, "policy.currentSanctionStatus", "none"))}
+      ${detailItem("Puntos penalización", get(driver, "policy.activePenaltyPoints", 0))}
+      ${detailItem("Vehículo aprobado", vehicle?.status || "Sin vehículo")}
+      ${detailItem("Vehículo activo", vehicle?.isActive ? "Sí" : "No")}
+    </div>
+    ${jsonBlock({
+      availability: driver.availability || {},
+      policy: driver.policy || {},
+      vehicle: vehicle || {},
+    })}
+  `;
+}
+
+function driverFinanceHtml(driver, wallet) {
+  const driverId = driver.driverId || driver.uid || driver.id;
+  const txs = state.driverWalletTransactions
+    .filter((tx) => tx.driverId === driverId)
+    .sort((a, b) => ms(b.createdAt) - ms(a.createdAt))
+    .slice(0, 20);
+
+  return `
+    <div class="detail-grid">
+      ${detailItem("Saldo disponible", wallet ? money(walletBalance(wallet)) : money(get(driver, "wallet.balance", 0)))}
+      ${detailItem("Mínimo requerido", money(get(wallet, "rules.minimumBalanceRequired", get(driver, "wallet.minimumBalanceRequired", MINIMUM_DRIVER_BALANCE))))}
+      ${detailItem("Puede recibir tareas comisionadas", get(wallet, "rules.canReceiveCommissionedTasks", get(driver, "wallet.canReceiveCommissionedTasks", false)) ? "Sí" : "No")}
+      ${detailItem("Bono bienvenida", get(wallet, "balance.welcomeBalance", get(driver, "wallet.welcomeBalanceAmount", 0)))}
+    </div>
+
+    <h4>Últimos movimientos</h4>
+    ${txs.length ? `
+      <div class="activity-feed">
+        ${txs.map((tx) => `
+          <div class="activity-item">
+            <strong>${e(walletMovementTitle(tx.type))} · ${tx.direction === "debit" ? "-" : "+"}${money(tx.amount)}</strong>
+            <span>${e(tx.description || "")}</span>
+            <small>${date(tx.createdAt)}</small>
+          </div>
+        `).join("")}
+      </div>
+    ` : `<div class="empty-state compact">Sin movimientos wallet.</div>`}
+  `;
+}
+
+function commerceSummaryHtml(commerce, owner) {
+  return `
+    <div class="detail-grid">
+      ${detailItem("Commerce ID", commerce.commerceId || commerce.id)}
+      ${detailItem("Negocio", commerce.businessName)}
+      ${detailItem("Propietario", owner?.fullName || commerce.legalName || commerce.ownerName)}
+      ${detailItem("Email", commerce.email || owner?.email)}
+      ${detailItem("Teléfono", commerce.phone || owner?.phone)}
+      ${detailItem("Categoría", commerce.category || commerce.categoryName || commerce.categoryId)}
+      ${detailItem("Estado usuario", owner?.status)}
+      ${detailItem("Activo", commerce.active ? "Sí" : "No")}
+      ${detailItem("Verificado", commerce.verified ? "Sí" : "No")}
+      ${detailItem("Puede recibir órdenes", commerce.canReceiveDeliveryOrders ? "Sí" : "No")}
+      ${detailItem("Open status", commerce.openStatus || "closed")}
+      ${detailItem("Zona", formatZone(commerceZone(commerce), commerce.department, commerce.municipality))}
+    </div>
+  `;
+}
+
+function commerceOperationHtml(commerce, owner) {
+  return `
+    <div class="detail-grid">
+      ${detailItem("Visible User App", isCommerceVisible(commerce) ? "Sí" : "No")}
+      ${detailItem("Delivery", commerce.deliveryEnabled ? "Sí" : "No")}
+      ${detailItem("Chat", commerce.chatEnabled ? "Sí" : "No")}
+      ${detailItem("Catálogo", commerce.catalogEnabled ? "Sí" : "No")}
+      ${detailItem("Abierto ahora", commerce.isCurrentlyOpen ? "Sí" : "No")}
+      ${detailItem("Plan", planLabel(commerce.subscriptionPlan || commerce.plan || "free"))}
+      ${detailItem("Prioridad", commerce.priorityPlacement ? "Sí" : "No")}
+      ${detailItem("Banner", commerce.bannerEnabled ? "Sí" : "No")}
+    </div>
+    ${jsonBlock({
+      commerce,
+      owner,
+    })}
+  `;
+}
+
+function commerceFinanceHtml(commerce) {
+  return `
+    <div class="detail-grid">
+      ${detailItem("Total órdenes", commerce.totalOrders || get(commerce, "metrics.ordersCompleted", 0))}
+      ${detailItem("Ventas totales", money(commerce.totalSales || get(commerce, "metrics.totalSales", 0)))}
+      ${detailItem("Rating", commerce.ratingAverage || get(commerce, "metrics.rating", 0))}
+      ${detailItem("Plan", planLabel(commerce.subscriptionPlan || commerce.plan || "free"))}
+      ${detailItem("Comisión", rate(commerce.commissionRate || 0))}
+    </div>
+  `;
+}
+
+function commerceImagesHtml(commerce) {
+  const images = [
+    ["Logo", commerce.logoUrl || commerce.logoThumbnailUrl],
+    ["Portada", commerce.coverUrl || commerce.coverImageUrl || commerce.coverThumbnailUrl],
+  ].filter(([, url]) => url);
+
+  if (!images.length) {
+    return `<div class="empty-state compact">Este comercio no tiene imágenes cargadas.</div>`;
+  }
+
+  return `
+    <div class="documents-grid">
+      ${images.map(([label, url]) => `
+        <button class="document-thumb" type="button" data-action="view-image" data-src="${ea(url)}" data-title="${ea(label)}">
+          <img src="${ea(url)}" alt="${ea(label)}" />
+          <span>${e(label)}</span>
+        </button>
+      `).join("")}
+    </div>
+  `;
+}
+
+function documentsHtml(profileDocs = {}, vehicleDocs = {}) {
+  const docs = {
+    ...profileDocs,
+    ...vehicleDocs,
+  };
+
+  const entries = Object.entries(docs)
+    .filter(([, value]) => typeof value === "string" && value.trim().length > 0);
+
+  if (!entries.length) {
+    return `<div class="empty-state compact">No hay documentos cargados.</div>`;
+  }
+
+  return `
+    <div class="documents-grid">
+      ${entries.map(([key, url]) => `
+        <button class="document-thumb" type="button" data-action="view-image" data-src="${ea(url)}" data-title="${ea(labelKey(key))}">
+          <img src="${ea(url)}" alt="${ea(labelKey(key))}" />
+          <span>${e(labelKey(key))}</span>
+        </button>
+      `).join("")}
+    </div>
+  `;
+}
+
+function zoneSummaryHtml(zone, fare) {
+  return `
+    <div class="detail-grid">
+      ${detailItem("Zona", zone.id)}
+      ${detailItem("Nombre", zone.displayName)}
+      ${detailItem("País", zone.country)}
+      ${detailItem("Departamento", zone.department)}
+      ${detailItem("Municipio", zone.municipality)}
+      ${detailItem("Activa", zone.active ? "Sí" : "No")}
+      ${detailItem("Servicios", servicesText(zone.enabledServices))}
+      ${detailItem("Fare config", fare ? "Existe" : "No encontrado")}
+    </div>
+  `;
+}
+
+function deliverySummaryHtml(order) {
+  return `
+    <div class="detail-grid">
+      ${detailItem("Orden", order.orderCode || order.orderId || order.id)}
+      ${detailItem("Cliente", order.customerName || order.userName)}
+      ${detailItem("Teléfono", order.customerPhone)}
+      ${detailItem("Comercio", order.commerceName || order.commerceId)}
+      ${detailItem("Repartidor", order.driverName || order.driverId || "Sin asignar")}
+      ${detailItem("Estado", STATUS_LABELS[order.status] || order.status)}
+      ${detailItem("Logística", order.logisticsStatus)}
+      ${detailItem("Dispatch", order.driverDispatchStatus)}
+      ${detailItem("Código entrega", order.deliveryCode)}
+      ${detailItem("Código verificado", order.deliveryCodeVerified ? "Sí" : "No")}
+      ${detailItem("Total", money(order.total || 0))}
+      ${detailItem("Creada", date(order.createdAt))}
+    </div>
+  `;
+}
+
+function deliveryProofHtml(order) {
+  const urls = [
+    order.deliveryProofUrl,
+    ...(Array.isArray(order.deliveryProofPhotoUrls) ? order.deliveryProofPhotoUrls : []),
+    ...(Array.isArray(order.pickupProofPhotoUrls) ? order.pickupProofPhotoUrls : []),
+    ...(Array.isArray(order.proofPhotoUrls) ? order.proofPhotoUrls : []),
+  ].filter(Boolean);
+
+  if (!urls.length) {
+    return `<div class="empty-state compact">No hay pruebas de entrega cargadas.</div>`;
+  }
+
+  return `
+    <div class="documents-grid">
+      ${urls.map((url, index) => `
+        <button class="document-thumb" type="button" data-action="view-image" data-src="${ea(url)}" data-title="Prueba ${index + 1}">
+          <img src="${ea(url)}" alt="Prueba ${index + 1}" />
+          <span>Prueba ${index + 1}</span>
+        </button>
+      `).join("")}
+    </div>
+  `;
+}
+
+function deliveryEventsHtml(order) {
+  const events = Array.isArray(order.statusEvents) ? order.statusEvents : [];
+
+  if (!events.length) {
+    return `<div class="empty-state compact">Sin eventos internos en la orden.</div>`;
+  }
+
+  return `
+    <div class="activity-feed">
+      ${events.map((event) => `
+        <div class="activity-item">
+          <strong>${e(event.statusLabel || event.status || event.nextStatus || "Evento")}</strong>
+          <span>${e(event.message || event.note || "")}</span>
+          <small>${date(event.createdAt)}</small>
+        </div>
+      `).join("")}
+    </div>
+  `;
+}
+
+function historyHtml(collectionName, targetId) {
+  const items = [...state.adminActions, ...state.auditLogs]
+    .filter((item) => item.targetCollection === collectionName && item.targetId === targetId)
+    .sort((a, b) => ms(b.createdAt) - ms(a.createdAt));
+
+  if (!items.length) {
+    return `<div class="empty-state compact">No hay historial administrativo para este registro.</div>`;
+  }
+
+  return `
+    <div class="activity-feed">
+      ${items.map((item) => `
+        <div class="activity-item">
+          <strong>${e(item.action || "Acción")}</strong>
+          <span>${e(item.adminEmail || "Admin")} · ${date(item.createdAt)}</span>
+          <small>${e(item.reason || "")}</small>
+        </div>
+      `).join("")}
+    </div>
+  `;
+}
+
+function jsonBlock(value) {
+  return `
+    <pre class="json-block">${e(JSON.stringify(toPlain(value), null, 2))}</pre>
+  `;
+}
+
+function detailItem(label, value) {
+  return `
+    <div class="detail-item">
+      <span>${e(label)}</span>
+      <strong>${e(value === undefined || value === null || value === "" ? "—" : value)}</strong>
+    </div>
+  `;
 }
 
 /* =========================================================
-   COMPONENTES HTML
+   FILTROS / DERIVADOS
 ========================================================= */
 
-function profileCell({ name, subtitle, imageUrl }) {
-  const safeName = name || "NIVO";
-  const initials = getInitials(safeName);
+function populateZoneFilters() {
+  const zones = [...state.serviceZones]
+    .sort((a, b) => String(a.displayName || a.id).localeCompare(String(b.displayName || b.id)));
 
-  return `
-    <div class="profile-cell">
-      <div class="profile-avatar">
-        ${
-          imageUrl
-            ? `<img src="${escapeAttr(imageUrl)}" alt="${escapeAttr(safeName)}" loading="lazy" />`
-            : `<span>${escapeHtml(initials)}</span>`
-        }
-      </div>
-      <div class="profile-meta">
-        <strong>${escapeHtml(safeName)}</strong>
-        <span>${escapeHtml(subtitle || "Sin información")}</span>
-      </div>
-    </div>
-  `;
+  const options = zones
+    .map((zone) => `<option value="${ea(zone.id)}">${e(zone.displayName || zone.id)}</option>`)
+    .join("");
+
+  ["usersZoneFilter", "driversZoneFilter", "commerceZoneFilter"].forEach((id) => {
+    const select = document.getElementById(id);
+
+    if (!select) return;
+
+    const current = select.value || "all";
+
+    select.innerHTML = `<option value="all">Todas las zonas</option>${options}`;
+    select.value = current !== "all" && state.indexes.zonesById.has(current) ? current : "all";
+  });
 }
 
-function statusBadge(status) {
-  const raw = status || "pending";
-  const label = STATUS_LABELS[raw] || raw;
+function buildRideTypesFromFareConfigs(fares, zones) {
+  const rows = [];
+  const zoneMap = new Map(zones.map((zone) => [zone.id, zone]));
 
-  return `<span class="status-badge ${escapeAttr(raw)}">${escapeHtml(label)}</span>`;
+  fares.forEach((fare) => {
+    const configs = transportConfigs(fare.transportConfigs);
+    const zoneId = fare.serviceZoneId || fare.id;
+    const zone = zoneMap.get(zoneId) || {};
+
+    Object.entries(configs).forEach(([transportId, config]) => {
+      rows.push({
+        id: `${zoneId}_${transportId}`,
+        serviceZoneId: zoneId,
+        sourceZoneLabel: zone.displayName || fare.municipality || zoneId,
+        ...config,
+        transportId,
+      });
+    });
+  });
+
+  return rows;
 }
 
-function booleanBadge(value, trueText = "Sí", falseText = "No") {
-  return value
-    ? `<span class="status-badge active">${escapeHtml(trueText)}</span>`
-    : `<span class="status-badge">${escapeHtml(falseText)}</span>`;
+function isDriverApproved(driver) {
+  return driver?.status === DRIVER_STATUSES.approved || driver?.status === "active";
 }
 
-function badge(label, className = "status-badge") {
-  return `<span class="${escapeAttr(className)}">${escapeHtml(label || "—")}</span>`;
+function commerceOwner(commerce) {
+  const uid = commerce?.ownerUid || commerce?.uid || commerce?.ownerId;
+
+  return state.indexes.commerceUsersById.get(uid) ||
+    state.indexes.commerceUsersByCommerceId.get(commerce?.commerceId || commerce?.id) ||
+    null;
 }
 
-function servicesBadges(services = {}) {
-  const serviceLabels = {
-    ride: "Viajes",
-    delivery: "Delivery",
-    package: "Paquetes",
-    school: "Escolar",
+function isCommerceActive(commerce) {
+  const owner = commerceOwner(commerce);
+
+  return commerce?.active === true &&
+    commerce?.verified === true &&
+    owner?.status === COMMERCE_USER_STATUSES.active;
+}
+
+function isCommerceVisible(commerce) {
+  return commerce?.active === true &&
+    commerce?.verified === true &&
+    commerce?.deliveryEnabled === true;
+}
+
+function isCommercePending(commerce) {
+  const owner = commerceOwner(commerce);
+
+  if (owner && [COMMERCE_USER_STATUSES.pendingProfile, COMMERCE_USER_STATUSES.pendingVerification].includes(owner.status)) {
+    return true;
+  }
+
+  if (commerce?.active !== true || commerce?.verified !== true) {
+    return true;
+  }
+
+  return ["pending_profile", "pending_review", "pending_verification", "correction_required"].includes(commerceStatus(commerce));
+}
+
+function commerceStatus(commerce) {
+  const owner = commerceOwner(commerce);
+
+  if (owner?.status === COMMERCE_USER_STATUSES.suspended) return "suspended";
+
+  if (owner?.status === COMMERCE_USER_STATUSES.active && commerce.active === true && commerce.verified === true) {
+    return "active";
+  }
+
+  return commerce.status ||
+    owner?.status ||
+    (commerce.active !== true || commerce.verified !== true ? "pending_verification" : "active");
+}
+
+function normalizeCommerceFilterStatus(value) {
+  if (value === "pending_review") return "pending_verification";
+  if (value === "blocked") return "suspended";
+  return value;
+}
+
+function driverWallet(driverId) {
+  return state.indexes.driverWalletsById.get(driverId) || null;
+}
+
+function primaryVehicle(driver) {
+  const driverId = driver.driverId || driver.uid || driver.id;
+  const vehicles = state.indexes.driverVehiclesByDriverId.get(driverId) || [];
+
+  return vehicles.find((vehicle) => vehicle.isPrimary === true) ||
+    state.indexes.driverVehiclesById.get(driver.primaryVehicleId || "") ||
+    vehicles[0] ||
+    null;
+}
+
+function userZone(user) {
+  return user.registeredZoneId || user.serviceZoneId || user.zoneId || "";
+}
+
+function commerceZone(commerce) {
+  return commerce.zoneId || commerce.serviceZoneId || commerce.registeredZoneId || "";
+}
+
+function walletBalance(wallet, fallback = 0) {
+  return Number(get(wallet, "balance.availableBalance", wallet?.availableBalance ?? fallback ?? 0)) || 0;
+}
+
+function driverRating(driver) {
+  const rating = Number(get(driver, "metrics.averageRating", get(driver, "metrics.rating", 0))) || 0;
+  const count = Number(get(driver, "metrics.ratingCount", 0)) || 0;
+
+  if (count <= 0 && rating <= 0) return "Nuevo";
+
+  return `${rating.toFixed(1)} (${count})`;
+}
+
+function normalizeServices(value) {
+  return {
+    ride: get(value, "ride", false) === true,
+    delivery: get(value, "delivery", false) === true,
+    package: get(value, "package", false) === true,
+    school: get(value, "school", false) === true,
   };
-
-  const active = Object.entries(serviceLabels)
-    .filter(([key]) => services?.[key] === true)
-    .map(([, label]) => `<span class="service-badge active">${escapeHtml(label)}</span>`);
-
-  return `<div class="badge-row">${active.length ? active.join("") : `<span class="service-badge">Sin servicios</span>`}</div>`;
 }
 
-function transportConfigsBadges(configs = {}) {
-  const items = Object.entries(configs || {})
-    .filter(([, config]) => config?.active === true)
-    .map(([key]) => `<span class="vehicle-badge">${escapeHtml(vehicleLabel(key))}</span>`);
-
-  return `<div class="badge-row">${items.length ? items.join("") : `<span class="vehicle-badge">Sin transportes</span>`}</div>`;
+function normalizeEnabledRideTypes(value) {
+  return {
+    car: get(value, "car", false) === true || get(value, "vehicle", false) === true,
+    motorcycle: get(value, "motorcycle", false) === true || get(value, "moto", false) === true,
+    mototaxi: get(value, "mototaxi", false) === true,
+    qute: get(value, "qute", false) === true || get(value, "quote", false) === true,
+  };
 }
 
-function availabilityBadge(availability = {}) {
-  if (availability?.currentTaskId) {
-    return `<span class="status-badge pending_review">Ocupado</span>`;
+function normalizeVehicleType(value) {
+  const clean = txt(value).toLowerCase();
+
+  if (["vehicle", "vehiculo", "vehículo"].includes(clean)) return "car";
+  if (["moto", "motorbike"].includes(clean)) return "motorcycle";
+  if (clean === "quote") return "qute";
+
+  return clean || "car";
+}
+
+function vehicleLabel(value) {
+  const clean = normalizeVehicleType(value);
+
+  return VEHICLE_LABELS[clean] || VEHICLE_LABELS[value] || txt(value) || "Vehículo";
+}
+
+function transportConfigs(value) {
+  if (!value || typeof value !== "object") return {};
+
+  return Object.entries(value).reduce((acc, [key, config]) => {
+    if (!config || typeof config !== "object") return acc;
+
+    const id = normalizeVehicleType(config.transportId || key);
+
+    acc[id] = {
+      ...config,
+      transportId: id,
+    };
+
+    return acc;
+  }, {});
+}
+
+function fareTransportEnabled(zoneId) {
+  const fare = state.indexes.fareConfigsById.get(zoneId);
+  const configs = transportConfigs(fare?.transportConfigs);
+
+  return Object.values(configs).reduce((acc, config) => {
+    acc[config.transportId] = config.active === true;
+    return acc;
+  }, {});
+}
+
+function defaultTransportConfigs(enabledRideTypes = {}) {
+  const enabled = normalizeEnabledRideTypes(enabledRideTypes);
+
+  return {
+    car: {
+      active: enabled.car,
+      transportId: "car",
+      transportTitle: "Vehículo",
+      baseFare: 1,
+      minimumFare: 1.5,
+      pricePerKm: 0.55,
+      pricePerMinute: 0.07,
+      maxPassengers: 4,
+      chargesPerPassenger: false,
+      requiresPassengerSelection: false,
+      maxAutoPricedZoneLevel: 3,
+      outOfZoneRequiresConfirmation: true,
+      zoneFixedFareIsPerPassenger: false,
+      zoneFixedFares: {},
+    },
+    motorcycle: {
+      active: enabled.motorcycle,
+      transportId: "motorcycle",
+      transportTitle: "Moto",
+      baseFare: 0.75,
+      minimumFare: 1,
+      pricePerKm: 0.4,
+      pricePerMinute: 0.05,
+      maxPassengers: 1,
+      chargesPerPassenger: false,
+      requiresPassengerSelection: false,
+      maxAutoPricedZoneLevel: 3,
+      outOfZoneRequiresConfirmation: true,
+      zoneFixedFareIsPerPassenger: false,
+      zoneFixedFares: {},
+    },
+    mototaxi: {
+      active: enabled.mototaxi,
+      transportId: "mototaxi",
+      transportTitle: "Mototaxi",
+      baseFare: 0.5,
+      minimumFare: 0.5,
+      pricePerKm: 0.35,
+      pricePerMinute: 0.03,
+      maxPassengers: 3,
+      chargesPerPassenger: true,
+      requiresPassengerSelection: true,
+      maxAutoPricedZoneLevel: 3,
+      outOfZoneRequiresConfirmation: true,
+      zoneFixedFareIsPerPassenger: true,
+      zoneFixedFares: {
+        1: 0.5,
+        2: 1,
+        3: 1.5,
+        4: 2,
+      },
+    },
+    qute: {
+      active: enabled.qute,
+      transportId: "qute",
+      transportTitle: "Qute",
+      baseFare: 0.5,
+      minimumFare: 0.5,
+      pricePerKm: 0.35,
+      pricePerMinute: 0.03,
+      maxPassengers: 3,
+      chargesPerPassenger: true,
+      requiresPassengerSelection: true,
+      maxAutoPricedZoneLevel: 3,
+      outOfZoneRequiresConfirmation: true,
+      zoneFixedFareIsPerPassenger: true,
+      zoneFixedFares: {
+        1: 0.5,
+        2: 1,
+        3: 1.5,
+        4: 2,
+      },
+    },
+  };
+}
+
+function defaultCommission(appliesTo) {
+  return {
+    enabled: true,
+    rate: 0.08,
+    ratePercent: 8,
+    label: "Comisión NIVO 8%",
+    chargedTo: "driver_wallet",
+    walletDebitEnabled: true,
+    blockIfInsufficientBalance: true,
+    minimumDriverWalletBalance: MINIMUM_DRIVER_BALANCE,
+    appliesTo,
+  };
+}
+
+function notificationRecipients(type, value) {
+  if (type === "all_users") {
+    return state.users.map((user) => ({
+      id: user.id,
+      role: user.role || "user",
+    }));
   }
 
-  if (availability?.isOnline && availability?.isAvailable) {
-    return `<span class="status-badge active">Disponible</span>`;
+  if (type === "users_by_zone") {
+    return state.users
+      .filter((user) => userZone(user) === value)
+      .map((user) => ({
+        id: user.id,
+        role: user.role || "user",
+      }));
   }
 
-  if (availability?.isOnline) {
-    return `<span class="status-badge correction_required">Online</span>`;
+  if (type === "drivers_by_zone") {
+    return state.drivers
+      .filter((driver) => driver.serviceZoneId === value)
+      .map((driver) => ({
+        id: driver.uid || driver.driverId || driver.id,
+        role: "driver",
+      }));
   }
 
-  return `<span class="status-badge">Offline</span>`;
-}
-
-function documentsSummary(documents = {}) {
-  const values = Object.values(documents || {});
-  const completed = values.filter(Boolean).length;
-  const total = values.length || 10;
-
-  const className = completed >= total
-    ? "active"
-    : completed > 0
-      ? "pending_review"
-      : "pending_documents";
-
-  return `<span class="status-badge ${className}">${completed}/${total}</span>`;
-}
-
-function renderReviewCards(items, role) {
-  if (!items.length) {
-    return `<div class="empty-state compact">Sin registros en esta etapa.</div>`;
+  if (type === "commerce_by_zone") {
+    return state.commerce
+      .filter((commerce) => commerceZone(commerce) === value)
+      .map((commerce) => ({
+        id: commerce.ownerUid || commerce.uid || commerce.id,
+        role: "commerce",
+      }));
   }
 
-  return items.slice(0, 8).map((item) => {
-    const name = role === "commerce"
-      ? item.businessName || item.ownerName || item.email || item.id
-      : item.fullName || item.email || item.id;
-
-    return `
-      <div class="review-card">
-        <strong>${escapeHtml(name)}</strong>
-        <span>${escapeHtml(item.serviceZoneId || item.registeredZoneId || "Sin zona")}</span>
-        <span>${escapeHtml(STATUS_LABELS[item.status] || item.status || "Sin estado")}</span>
-      </div>
-    `;
-  }).join("");
-}
-
-function detailField(label, value) {
-  return `
-    <div class="detail-field">
-      <span>${escapeHtml(label)}</span>
-      <strong>${escapeHtml(value === undefined || value === null || value === "" ? "—" : String(value))}</strong>
-    </div>
-  `;
-}
-
-function documentCard(label, url) {
-  if (!url) {
-    return `
-      <div class="document-card">
-        <button type="button" disabled>
-          <span>${escapeHtml(label)} no cargado</span>
-        </button>
-      </div>
-    `;
+  if (type === "agents_by_zone") {
+    return state.agents
+      .filter((agent) => agent.serviceZoneId === value)
+      .map((agent) => ({
+        id: agent.uid || agent.agentId || agent.id,
+        role: "agent",
+      }));
   }
 
-  return `
-    <div class="document-card">
-      <button
-        type="button"
-        data-action="view-image"
-        data-src="${escapeAttr(url)}"
-        data-title="${escapeAttr(label)}"
-      >
-        <img src="${escapeAttr(url)}" alt="${escapeAttr(label)}" loading="lazy" />
-      </button>
-      <span>${escapeHtml(label)}</span>
-    </div>
-  `;
+  if (type === "single_uid") {
+    return value
+      ? [{
+          id: value,
+          role: inferRole(value),
+        }]
+      : [];
+  }
+
+  return [];
 }
 
-function emptyTableRow(colspan, message) {
+function inferRole(uid) {
+  if (state.indexes.driversById.has(uid)) return "driver";
+  if (state.indexes.commerceUsersById.has(uid)) return "commerce";
+  if (state.indexes.agentsById.has(uid)) return "agent";
+
+  return state.indexes.usersById.get(uid)?.role || "user";
+}
+
+function resolveRecipientFromDetail(detail) {
+  if (!detail) return null;
+
+  if (detail.type === "driver") {
+    const driver = state.indexes.driversById.get(detail.id);
+    return {
+      id: driver?.uid || driver?.driverId || detail.id,
+      role: "driver",
+    };
+  }
+
+  if (detail.type === "commerce") {
+    const commerce = state.indexes.commerceById.get(detail.id);
+    const owner = commerceOwner(commerce);
+
+    return {
+      id: commerce?.ownerUid || owner?.uid || commerce?.uid || detail.id,
+      role: "commerce",
+    };
+  }
+
+  if (detail.type === "user") {
+    const user = state.indexes.usersById.get(detail.id);
+
+    return {
+      id: user?.uid || detail.id,
+      role: user?.role || "user",
+    };
+  }
+
+  return null;
+}
+
+/* =========================================================
+   UI HELPERS
+========================================================= */
+
+function setText(id, value) {
+  const element = document.getElementById(id);
+
+  if (element) {
+    element.textContent = value ?? "";
+  }
+}
+
+function setHtml(id, html) {
+  const element = document.getElementById(id);
+
+  if (element) {
+    element.innerHTML = html || "";
+  }
+}
+
+function emptyRow(colspan, message) {
   return `
     <tr>
-      <td colspan="${Number(colspan) || 1}">
-        <div class="empty-state compact">${escapeHtml(message)}</div>
+      <td colspan="${colspan}">
+        <div class="empty-state compact">${e(message)}</div>
       </td>
     </tr>
   `;
 }
 
-/* =========================================================
-   HELPERS DE DATOS
-========================================================= */
+function avatar(value) {
+  const initial = txt(value).charAt(0).toUpperCase() || "N";
 
-function normalizeVehicleType(value) {
-  const raw = normalizeText(value).toLowerCase();
-
-  if (raw === "vehicle") return "car";
-  if (raw === "moto") return "motorcycle";
-
-  return raw || "unknown";
+  return `<span class="avatar">${e(initial)}</span>`;
 }
 
-function vehicleLabel(value) {
-  const safe = normalizeVehicleType(value);
-  return VEHICLE_LABELS[safe] || VEHICLE_LABELS[value] || value || "Sin vehículo";
+function pill(label, tone = "neutral") {
+  return `<span class="status-pill ${e(tone)}">${e(label)}</span>`;
+}
+
+function statusPill(status) {
+  const clean = status || "pending";
+  const label = STATUS_LABELS[clean] || clean;
+  let tone = "neutral";
+
+  if (["active", "approved", "delivered", "confirmed", "read"].includes(clean)) {
+    tone = "success";
+  } else if (["pending", "pending_review", "pending_documents", "pending_verification", "ready_for_pickup", "pending_driver", "correction_required"].includes(clean)) {
+    tone = "warning";
+  } else if (["blocked", "rejected", "suspended", "cancelled", "fraud_suspected"].includes(clean)) {
+    tone = "danger";
+  }
+
+  return pill(label, tone);
+}
+
+function servicesBadges(value = {}) {
+  const services = normalizeServices(value);
+
+  const html = Object.entries(services)
+    .filter(([, enabled]) => enabled)
+    .map(([key]) => pill(SERVICE_LABELS[key] || key, "neutral"))
+    .join("");
+
+  return html || pill("Sin servicios", "warning");
+}
+
+function rideTypeBadges(value = {}) {
+  const types = normalizeEnabledRideTypes(value);
+
+  const html = Object.entries(types)
+    .filter(([, enabled]) => enabled)
+    .map(([key]) => pill(vehicleLabel(key), "neutral"))
+    .join("");
+
+  return html || pill("Sin transportes", "warning");
+}
+
+function servicesText(value = {}) {
+  const services = normalizeServices(value);
+
+  const list = Object.entries(services)
+    .filter(([, enabled]) => enabled)
+    .map(([key]) => SERVICE_LABELS[key] || key);
+
+  return list.length ? list.join(", ") : "Sin servicios";
+}
+
+function walletMovementTitle(type) {
+  switch (type) {
+    case "topup":
+      return "Recarga NIVO";
+    case "welcome_bonus":
+      return "Bono de bienvenida";
+    case "commission_debit":
+      return "Comisión NIVO";
+    case "adjustment":
+      return "Ajuste administrativo";
+    case "refund":
+      return "Reembolso";
+    default:
+      return "Movimiento";
+  }
+}
+
+function showToast(message, type = "info", title = "") {
+  const region = $("#toastRegion");
+
+  if (!region) {
+    console[type === "error" ? "error" : "log"](`[${title || "NIVO"}] ${message}`);
+    return;
+  }
+
+  const toast = document.createElement("div");
+  toast.className = `toast toast-${type}`;
+  toast.innerHTML = `
+    ${title ? `<strong>${e(title)}</strong>` : ""}
+    <span>${e(message)}</span>
+  `;
+
+  region.appendChild(toast);
+
+  window.setTimeout(() => {
+    toast.classList.add("show");
+  }, 20);
+
+  window.setTimeout(() => {
+    toast.classList.remove("show");
+    window.setTimeout(() => toast.remove(), 300);
+  }, 5200);
+}
+
+/* =========================================================
+   UTILIDADES GENERALES
+========================================================= */
+
+function get(source, path, fallback = undefined) {
+  if (!source || !path) return fallback;
+
+  let current = source;
+
+  for (const key of String(path).split(".")) {
+    if (current === null || current === undefined || typeof current !== "object" || !(key in current)) {
+      return fallback;
+    }
+
+    current = current[key];
+  }
+
+  return current === null || current === undefined ? fallback : current;
+}
+
+function txt(value) {
+  return String(value || "").trim();
+}
+
+function lower(value) {
+  return txt(value).toLowerCase();
+}
+
+function searchable(item, keys) {
+  return keys
+    .map((key) => String(get(item, key, "") || "").toLowerCase())
+    .join(" ");
+}
+
+function countTruthy(value) {
+  if (!value || typeof value !== "object") return 0;
+
+  return Object.values(value).filter(Boolean).length;
+}
+
+function sumBy(items, key) {
+  return items.reduce((sum, item) => {
+    return sum + (Number(get(item, key, 0)) || 0);
+  }, 0);
+}
+
+function money(value) {
+  return `$${(Number(value) || 0).toFixed(2)}`;
+}
+
+function num(value) {
+  const number = Number(value) || 0;
+
+  return Number.isInteger(number) ? String(number) : number.toFixed(2);
+}
+
+function rate(value) {
+  const number = Number(value) || 0;
+
+  if (number <= 0) return "0%";
+
+  return number <= 1 ? `${(number * 100).toFixed(0)}%` : `${number.toFixed(0)}%`;
+}
+
+function date(value) {
+  const dateValue = toDate(value);
+
+  if (!dateValue) return "—";
+
+  return new Intl.DateTimeFormat("es-SV", {
+    dateStyle: "medium",
+    timeStyle: "short",
+  }).format(dateValue);
+}
+
+function toDate(value) {
+  if (!value) return null;
+  if (value instanceof Date) return value;
+  if (typeof value.toDate === "function") return value.toDate();
+  if (typeof value === "number") return new Date(value);
+
+  if (typeof value === "string") {
+    const parsed = new Date(value);
+    return Number.isNaN(parsed.getTime()) ? null : parsed;
+  }
+
+  return null;
+}
+
+function ms(value) {
+  return toDate(value)?.getTime() || 0;
 }
 
 function formatZone(zoneId, department, municipality) {
-  const zone = zoneId ? state.indexes.zonesById.get(zoneId) : null;
+  const zone = state.indexes.zonesById?.get(zoneId || "");
 
-  if (zone) {
-    return zone.displayName || `${zone.department || ""} ${zone.municipality || ""}`.trim() || zone.id;
-  }
+  if (zone?.displayName) return zone.displayName;
 
-  if (department || municipality) {
-    return `${department || ""}${department && municipality ? " / " : ""}${municipality || ""}`;
+  if (municipality && department) {
+    return `${municipality}, ${department}`;
   }
 
   return zoneId || "Sin zona";
 }
 
-function getInitials(value) {
-  const parts = normalizeText(value).split(/\s+/).filter(Boolean);
-
-  if (!parts.length) return "N";
-
-  return parts
-    .slice(0, 2)
-    .map((part) => part[0])
-    .join("")
-    .toUpperCase();
+function planLabel(plan) {
+  return {
+    basic: "Básico",
+    premium: "Premium",
+    none: "Sin plan",
+    free: "Gratis",
+  }[plan] || plan || "Gratis";
 }
 
-function searchable(item, keys) {
-  const values = keys.map((key) => get(item, key, ""));
-  return values.join(" ").toLowerCase();
+function labelKey(key) {
+  return String(key || "")
+    .replace(/Url$/i, "")
+    .replace(/([A-Z])/g, " $1")
+    .replace(/_/g, " ")
+    .trim()
+    .replace(/^./, (letter) => letter.toUpperCase());
 }
 
-function get(obj, path, fallback = undefined) {
-  if (!obj || !path) return fallback;
-
-  const parts = String(path).split(".");
-  let current = obj;
-
-  for (const part of parts) {
-    if (current === null || current === undefined) return fallback;
-    current = current[part];
-  }
-
-  return current === undefined || current === null ? fallback : current;
-}
-
-function sumBy(items, field) {
-  return items.reduce((total, item) => {
-    const value = Number(get(item, field, 0));
-    return total + (Number.isFinite(value) ? value : 0);
-  }, 0);
-}
-
-function formatMoney(value) {
-  const number = Number(value || 0);
-
-  return new Intl.NumberFormat("es-SV", {
-    style: "currency",
-    currency: "USD",
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  }).format(Number.isFinite(number) ? number : 0);
-}
-
-function formatPercent(value) {
-  const number = Number(value || 0);
-
-  if (!Number.isFinite(number)) return "0%";
-
-  if (number > 0 && number <= 1) {
-    return `${(number * 100).toFixed(2)}%`;
-  }
-
-  return `${number.toFixed(2)}%`;
-}
-
-function formatDate(value) {
-  if (!value) return "—";
-
-  try {
-    let date = null;
-
-    if (typeof value.toDate === "function") {
-      date = value.toDate();
-    } else if (value instanceof Date) {
-      date = value;
-    } else if (typeof value === "string" || typeof value === "number") {
-      date = new Date(value);
+function toPlain(value) {
+  return JSON.parse(JSON.stringify(value, (_key, item) => {
+    if (item && typeof item.toDate === "function") {
+      return item.toDate().toISOString();
     }
 
-    if (!date || Number.isNaN(date.getTime())) return "—";
-
-    return new Intl.DateTimeFormat("es-SV", {
-      dateStyle: "medium",
-      timeStyle: "short",
-    }).format(date);
-  } catch (_) {
-    return "—";
-  }
+    return item;
+  }));
 }
 
-function buildServiceZoneId(country, department, municipality) {
-  const safeCountry = slugify(country || "SV");
-  const safeDepartment = slugify(department);
-  const safeMunicipality = slugify(municipality);
-
-  if (!safeDepartment || !safeMunicipality) return null;
-
-  return `${safeCountry}-${safeDepartment}-${safeMunicipality}`;
+function e(value) {
+  return String(value ?? "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#039;");
 }
 
-function normalizeText(value) {
-  return String(value || "").trim();
+function ea(value) {
+  return e(value).replace(/`/g, "&#096;");
 }
 
-function normalizeEmail(value) {
-  return normalizeText(value).toLowerCase();
+function debounce(fn, delay = 120) {
+  let timeout;
+
+  return (...args) => {
+    clearTimeout(timeout);
+    timeout = setTimeout(() => fn(...args), delay);
+  };
+}
+
+function sleep(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
 function removeAccents(value) {
@@ -4074,132 +4289,14 @@ function slugify(value) {
     .replace(/^-+|-+$/g, "");
 }
 
-function sanitizeForFirestore(value) {
-  if (Array.isArray(value)) {
-    return value.map((item) => sanitizeForFirestore(item)).filter((item) => item !== undefined);
-  }
-
-  if (value && typeof value === "object") {
-    if (typeof value.toDate === "function") return value;
-
-    const cleaned = {};
-
-    Object.entries(value).forEach(([key, item]) => {
-      if (item === undefined) return;
-      cleaned[key] = sanitizeForFirestore(item);
-    });
-
-    return cleaned;
-  }
-
-  return value;
-}
-
-/* =========================================================
-   DOM HELPERS
-========================================================= */
-
-function setText(id, value) {
-  const el = document.getElementById(id);
-  if (el) el.textContent = value === undefined || value === null ? "" : String(value);
-}
-
-function setHTML(id, html) {
-  const el = document.getElementById(id);
-  if (el) el.innerHTML = html || "";
-}
-
-function setFormLoading(formId, loading) {
-  const form = document.getElementById(formId);
-  if (!form) return;
-
-  form.classList.toggle("is-loading", Boolean(loading));
-
-  $$("input, select, textarea, button", form).forEach((field) => {
-    field.disabled = Boolean(loading);
-  });
-}
-
-function setDashboardLoading(loading) {
-  const shell = $("#dashboardShell");
-  if (shell) shell.classList.toggle("is-loading", Boolean(loading));
-}
-
-function showToast(message, type = "info", title = null) {
-  const region = $("#toastRegion");
-  if (!region) return;
-
-  const toast = document.createElement("div");
-  toast.className = `toast ${type}`;
-  toast.innerHTML = `
-    <strong>${escapeHtml(title || toastTitle(type))}</strong>
-    <span>${escapeHtml(message || "")}</span>
-  `;
-
-  region.appendChild(toast);
-
-  window.setTimeout(() => {
-    toast.style.opacity = "0";
-    toast.style.transform = "translateY(10px)";
-
-    window.setTimeout(() => {
-      toast.remove();
-    }, 220);
-  }, 4600);
-}
-
-function toastTitle(type) {
-  if (type === "success") return "Listo";
-  if (type === "warning") return "Atención";
-  if (type === "error") return "Error";
-  return "NIVO";
-}
-
-function escapeHtml(value) {
-  return String(value ?? "")
-    .replaceAll("&", "&amp;")
-    .replaceAll("<", "&lt;")
-    .replaceAll(">", "&gt;")
-    .replaceAll('"', "&quot;")
-    .replaceAll("'", "&#039;");
-}
-
-function escapeAttr(value) {
-  return escapeHtml(value).replaceAll("`", "&#096;");
-}
-
-function sleep(ms) {
-  return new Promise((resolve) => window.setTimeout(resolve, ms));
-}
-
-function debounce(fn, wait = 160) {
-  let timeout = null;
-
-  return (...args) => {
-    window.clearTimeout(timeout);
-    timeout = window.setTimeout(() => fn(...args), wait);
-  };
+function buildZoneId(country, department, municipality) {
+  return `${slugify(country || DEFAULT_COUNTRY)}-${slugify(department)}-${slugify(municipality)}`;
 }
 
 async function logout() {
-  try {
-    await window.NIVOAuthLogoutHandler();
-  } catch (error) {
-    console.error("[NIVO Dashboard] Error cerrando sesión:", error);
-    safeRedirect("login.html");
+  if (state.authCore?.logout) {
+    return state.authCore.logout();
   }
+
+  window.location.assign("login.html");
 }
-
-function safeRedirect(url) {
-  window.location.assign(url);
-}
-
-/* =========================================================
-   API DEBUG
-========================================================= */
-
-window.NIVODashboard = {
-  state,
-  reload: loadDashboardData,
-  showSection,
-};
