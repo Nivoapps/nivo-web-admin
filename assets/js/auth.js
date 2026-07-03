@@ -3,9 +3,9 @@
    Archivo: assets/js/auth.js
 
    Función:
-   - Conectar login.html y register.html con Firebase Auth.
-   - Crear perfil base en Firestore.
-   - Crear perfil inicial para driver/agent cuando aplique.
+   - Conectar login.html, register.html y forgot-password.html con Firebase Auth.
+   - Crear perfil base en Firestore: users/{uid}.
+   - Crear perfil inicial para driver, commerce y agent cuando aplique.
    - Resolver redirección por rol.
    - Bloquear registro público de cuentas admin.
 
@@ -13,6 +13,8 @@
    - Esta web usa módulos ES directamente desde CDN de Firebase.
    - No usar import { initializeApp } from "firebase/app";
      porque eso es para proyectos con bundler como Vite/Webpack.
+   - Una cuenta admin NO se crea cambiando users/{uid}.role.
+     Se crea agregando admin_profiles/{uid}.
 ========================================================= */
 
 import {
@@ -69,6 +71,7 @@ const COLLECTIONS = Object.freeze({
   users: "users",
   adminProfiles: "admin_profiles",
   driverProfiles: "driver_profiles",
+  commerceProfiles: "commerce_profiles",
   agentProfiles: "agent_profiles",
 });
 
@@ -243,8 +246,10 @@ function setGlobalAuthContext(context) {
     uid: context.uid,
     email: context.email || null,
     role: context.role || null,
+    adminRole: context.adminRole || null,
     status: context.status || null,
     profileSource: context.profileSource || null,
+    permissions: context.permissions || null,
     resolvedAt: new Date().toISOString(),
   });
 }
@@ -519,6 +524,81 @@ function buildDriverProfile({
   };
 }
 
+function buildCommerceProfile({
+  uid,
+  email,
+  fullName,
+  phone,
+  country,
+  department,
+  municipality,
+  serviceZoneId,
+}) {
+  return {
+    commerceId: uid,
+    uid,
+    ownerUid: uid,
+    ownerName: fullName,
+    email,
+    phone,
+    photoUrl: null,
+
+    businessName: null,
+    legalName: null,
+    categoryId: null,
+    categoryName: null,
+    description: null,
+    logoUrl: null,
+    coverUrl: null,
+
+    country,
+    department,
+    municipality,
+    serviceZoneId,
+    address: null,
+    location: null,
+
+    status: "pending_profile",
+
+    verification: {
+      status: "pending_profile",
+      documentsSubmittedAt: null,
+      reviewedAt: null,
+      reviewedBy: null,
+      rejectionReason: null,
+      reviewReason: null,
+      adminNote: null,
+    },
+
+    canReceiveOrders: false,
+    isVisible: false,
+    catalogEnabled: false,
+
+    plan: "none",
+    commissionRate: 0,
+
+    metrics: {
+      ordersCompleted: 0,
+      ordersCancelled: 0,
+      rating: 0,
+      totalSales: 0,
+      averagePreparationMinutes: 0,
+    },
+
+    settings: {
+      acceptsCash: true,
+      acceptsCard: false,
+      acceptsWallet: false,
+      autoAcceptOrders: false,
+      preparationTimeMinutes: 30,
+    },
+
+    createdAt: serverTimestamp(),
+    updatedAt: serverTimestamp(),
+    lastLoginAt: serverTimestamp(),
+  };
+}
+
 function buildAgentProfile({
   uid,
   email,
@@ -591,6 +671,27 @@ async function createRoleProfileIfNeeded({
     return;
   }
 
+  if (role === PUBLIC_ROLES.commerce) {
+    const commerceRef = doc(db, COLLECTIONS.commerceProfiles, uid);
+
+    await setDoc(
+      commerceRef,
+      buildCommerceProfile({
+        uid,
+        email,
+        fullName,
+        phone,
+        country,
+        department,
+        municipality,
+        serviceZoneId,
+      }),
+      { merge: true }
+    );
+
+    return;
+  }
+
   if (role === PUBLIC_ROLES.agent) {
     const agentRef = doc(db, COLLECTIONS.agentProfiles, uid);
 
@@ -608,23 +709,6 @@ async function createRoleProfileIfNeeded({
       }),
       { merge: true }
     );
-
-    return;
-  }
-
-  if (role === PUBLIC_ROLES.commerce) {
-    /*
-      No se crea commerce_profiles aquí todavía.
-
-      Motivo:
-      Antes de programar el módulo web de comercio debemos confirmar
-      si la colección final será:
-      - commerce_profiles/{commerceId}
-      - commerces/{commerceId}
-
-      Por ahora se crea users/{uid} con role="commerce"
-      y status="pending_profile".
-    */
   }
 }
 
@@ -769,7 +853,8 @@ async function handleRegister(payload) {
 
 /* =========================================================
    PASSWORD RESET
-   Futuro uso en forgot-password.html
+   Usado por forgot-password.html:
+   window.NIVOAuthPasswordResetHandler(email)
 ========================================================= */
 
 async function handlePasswordReset(email) {
@@ -835,7 +920,7 @@ function setupAuthStateListener() {
 }
 
 /* =========================================================
-   API GLOBAL PARA HTML
+   API GLOBAL PARA HTML Y DASHBOARD
 ========================================================= */
 
 window.NIVOAuthLoginHandler = handleLogin;
@@ -843,6 +928,17 @@ window.NIVOAuthRegisterHandler = handleRegister;
 window.NIVOAuthPasswordResetHandler = handlePasswordReset;
 window.NIVOAuthLogoutHandler = handleLogout;
 window.NIVOResolveUserAccess = resolveUserAccess;
+
+window.NIVOAuthCore = {
+  getServices,
+  getAuth: () => getServices().auth,
+  getDb: () => getServices().db,
+  resolveUserAccess,
+  logout: handleLogout,
+  collections: COLLECTIONS,
+  publicRoles: PUBLIC_ROLES,
+  roleRoutes: ROLE_ROUTES,
+};
 
 /* =========================================================
    INIT
