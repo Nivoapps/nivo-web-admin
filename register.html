@@ -1,0 +1,1216 @@
+<!DOCTYPE html>
+<html lang="es-SV">
+<head>
+  <meta charset="UTF-8" />
+  <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+  <title>Registrarse | NIVO</title>
+
+  <meta
+    name="description"
+    content="Crea tu cuenta en NIVO como usuario, conductor, comercio o agente para formar parte del ecosistema local de movilidad, delivery y oportunidades."
+  />
+  <meta name="robots" content="noindex, nofollow" />
+  <meta name="author" content="NIVO" />
+  <meta name="theme-color" content="#05070A" />
+  <meta name="format-detection" content="telephone=no" />
+
+  <meta property="og:title" content="Registrarse | NIVO" />
+  <meta
+    property="og:description"
+    content="Crea tu cuenta NIVO y selecciona cómo quieres participar dentro de la plataforma."
+  />
+  <meta property="og:type" content="website" />
+  <meta property="og:locale" content="es_SV" />
+  <meta property="og:site_name" content="NIVO" />
+  <meta property="og:image" content="assets/img/social/og-nivo-home.png" />
+
+  <link rel="icon" href="assets/img/favicon/favicon.ico" sizes="any" />
+  <link rel="icon" type="image/png" sizes="16x16" href="assets/img/favicon/favicon-16x16.png" />
+  <link rel="icon" type="image/png" sizes="32x32" href="assets/img/favicon/favicon-32x32.png" />
+  <link rel="apple-touch-icon" href="assets/img/favicon/apple-touch-icon.png" />
+
+  <link rel="preload" as="image" href="assets/img/brand/nivo-logo-horizontal-white.png" />
+  <link rel="preload" as="image" href="assets/img/hero/hero-bg-ahuachapan.png" />
+
+  <link rel="stylesheet" href="assets/css/styles.css" />
+
+  <style>
+    .register-page {
+      position: relative;
+      min-height: 100svh;
+      display: grid;
+      place-items: center;
+      padding: 112px 0 56px;
+      overflow: hidden;
+      isolation: isolate;
+      background: #05070a;
+    }
+
+    .register-page::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      z-index: 0;
+      background:
+        linear-gradient(
+          90deg,
+          rgba(5, 7, 10, 0.94) 0%,
+          rgba(5, 7, 10, 0.70) 44%,
+          rgba(5, 7, 10, 0.90) 100%
+        ),
+        linear-gradient(
+          to bottom,
+          rgba(5, 7, 10, 0.54) 0%,
+          rgba(5, 7, 10, 0.18) 42%,
+          #05070a 100%
+        ),
+        url("assets/img/hero/hero-bg-ahuachapan.png");
+      background-size: cover;
+      background-position: center;
+      opacity: 0.98;
+      transform: scale(1.02);
+    }
+
+    .register-page::after {
+      content: "";
+      position: absolute;
+      inset: 0;
+      z-index: 1;
+      pointer-events: none;
+      background:
+        radial-gradient(circle at 18% 24%, rgba(54, 231, 225, 0.18), transparent 30%),
+        radial-gradient(circle at 78% 20%, rgba(139, 92, 246, 0.16), transparent 30%),
+        radial-gradient(circle at 54% 86%, rgba(54, 231, 225, 0.10), transparent 36%);
+      mix-blend-mode: screen;
+    }
+
+    .register-shell {
+      position: relative;
+      z-index: 5;
+      width: min(1180px, calc(100% - 36px));
+      display: grid;
+      grid-template-columns: minmax(0, 0.86fr) minmax(520px, 1fr);
+      align-items: stretch;
+      gap: 24px;
+    }
+
+    .register-brand-panel,
+    .register-card {
+      border-radius: var(--radius-xl);
+      border: 1px solid rgba(255, 255, 255, 0.11);
+      background:
+        radial-gradient(circle at var(--mouse-x, 40%) var(--mouse-y, 0%), rgba(54, 231, 225, 0.16), transparent 36%),
+        linear-gradient(180deg, rgba(255, 255, 255, 0.090), rgba(255, 255, 255, 0.035));
+      box-shadow: var(--shadow-lg);
+      backdrop-filter: blur(24px);
+      overflow: hidden;
+    }
+
+    .register-brand-panel {
+      position: relative;
+      min-height: 760px;
+      padding: clamp(30px, 5vw, 56px);
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      isolation: isolate;
+    }
+
+    .register-brand-panel::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      z-index: -2;
+      background:
+        linear-gradient(to bottom, rgba(5, 7, 10, 0.10), rgba(5, 7, 10, 0.74)),
+        url("assets/img/sections/section-users.png");
+      background-size: cover;
+      background-position: center;
+      opacity: 0.40;
+      filter: saturate(0.95) contrast(1.08);
+    }
+
+    .register-brand-panel::after,
+    .register-card::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      z-index: -1;
+      background-image:
+        linear-gradient(rgba(255, 255, 255, 0.028) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(255, 255, 255, 0.028) 1px, transparent 1px);
+      background-size: 38px 38px;
+      mask-image: linear-gradient(to bottom, black, transparent 82%);
+      pointer-events: none;
+    }
+
+    .register-logo-link {
+      display: inline-flex;
+      align-items: center;
+      width: fit-content;
+    }
+
+    .register-logo {
+      width: 168px;
+      height: auto;
+      object-fit: contain;
+      filter: drop-shadow(0 0 24px rgba(54, 231, 225, 0.18));
+    }
+
+    .register-brand-content {
+      max-width: 600px;
+      margin-top: 70px;
+    }
+
+    .register-kicker {
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      width: fit-content;
+      padding: 9px 12px;
+      border-radius: 999px;
+      color: var(--nivo-soft);
+      background: rgba(5, 7, 10, 0.46);
+      border: 1px solid rgba(54, 231, 225, 0.28);
+      backdrop-filter: blur(18px);
+      font-size: 0.78rem;
+      font-weight: 950;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+    }
+
+    .register-kicker::before {
+      content: "";
+      width: 9px;
+      height: 9px;
+      border-radius: 99px;
+      background: var(--nivo-cyan);
+      box-shadow: 0 0 16px var(--nivo-cyan);
+    }
+
+    .register-brand-content h1 {
+      margin-top: 24px;
+      max-width: 650px;
+      font-size: clamp(2.8rem, 6vw, 5.4rem);
+      line-height: 0.96;
+      letter-spacing: -0.075em;
+      font-weight: 1000;
+      text-shadow: 0 28px 84px rgba(0, 0, 0, 0.50);
+    }
+
+    .register-brand-content h1 span {
+      display: block;
+      margin-top: 12px;
+      background: linear-gradient(90deg, #ffffff 0%, #effffe 32%, var(--nivo-cyan) 100%);
+      -webkit-background-clip: text;
+      background-clip: text;
+      color: transparent;
+    }
+
+    .register-brand-content p {
+      max-width: 560px;
+      margin-top: 22px;
+      color: rgba(255, 255, 255, 0.76);
+      font-size: 1.05rem;
+      line-height: 1.78;
+      text-shadow: 0 18px 46px rgba(0, 0, 0, 0.54);
+    }
+
+    .register-proof-grid {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 12px;
+      margin-top: 34px;
+    }
+
+    .register-proof {
+      display: flex;
+      align-items: flex-start;
+      gap: 12px;
+      padding: 16px;
+      border-radius: 22px;
+      background: rgba(5, 7, 10, 0.46);
+      border: 1px solid rgba(255, 255, 255, 0.11);
+      backdrop-filter: blur(18px);
+      box-shadow: 0 20px 54px rgba(0, 0, 0, 0.20);
+    }
+
+    .register-proof-icon {
+      width: 32px;
+      height: 32px;
+      flex: 0 0 auto;
+      display: grid;
+      place-items: center;
+      border-radius: 12px;
+      color: #031111;
+      background: linear-gradient(135deg, var(--nivo-cyan), var(--nivo-cyan-2));
+      font-weight: 1000;
+      box-shadow: 0 0 22px rgba(54, 231, 225, 0.24);
+    }
+
+    .register-proof strong {
+      display: block;
+      color: var(--nivo-white);
+      font-size: 0.98rem;
+      line-height: 1.2;
+    }
+
+    .register-proof span {
+      display: block;
+      margin-top: 7px;
+      color: var(--nivo-muted);
+      font-size: 0.84rem;
+      line-height: 1.48;
+    }
+
+    .register-back-link {
+      display: inline-flex;
+      align-items: center;
+      gap: 9px;
+      width: fit-content;
+      margin-top: 34px;
+      color: rgba(255, 255, 255, 0.74);
+      font-weight: 850;
+      transition:
+        color 0.25s var(--ease),
+        transform 0.25s var(--ease);
+    }
+
+    .register-back-link:hover {
+      color: var(--nivo-cyan);
+      transform: translateX(-3px);
+    }
+
+    .register-card {
+      position: relative;
+      min-height: 760px;
+      padding: clamp(26px, 4vw, 42px);
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      isolation: isolate;
+    }
+
+    .register-card-inner {
+      position: relative;
+      z-index: 2;
+    }
+
+    .register-card-mark {
+      width: 64px;
+      height: 64px;
+      display: grid;
+      place-items: center;
+      border-radius: 22px;
+      margin-bottom: 24px;
+      background: linear-gradient(135deg, var(--nivo-cyan), var(--nivo-cyan-2));
+      box-shadow:
+        0 0 0 12px rgba(54, 231, 225, 0.08),
+        0 0 54px rgba(54, 231, 225, 0.28);
+    }
+
+    .register-card-mark img {
+      width: 40px;
+      height: 40px;
+      object-fit: contain;
+    }
+
+    .register-card h2 {
+      font-size: clamp(2rem, 4vw, 3.15rem);
+      line-height: 1;
+      letter-spacing: -0.055em;
+      font-weight: 1000;
+    }
+
+    .register-card p {
+      margin-top: 14px;
+      color: var(--nivo-muted);
+      line-height: 1.7;
+    }
+
+    .register-form {
+      margin-top: 30px;
+    }
+
+    .register-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 14px;
+    }
+
+    .register-field {
+      display: grid;
+      gap: 9px;
+      margin-bottom: 16px;
+    }
+
+    .register-field.full {
+      grid-column: 1 / -1;
+    }
+
+    .register-field label,
+    .terms-check {
+      color: rgba(255, 255, 255, 0.80);
+      font-size: 0.9rem;
+      font-weight: 850;
+    }
+
+    .register-input-wrap {
+      position: relative;
+    }
+
+    .register-input-wrap input,
+    .register-input-wrap select {
+      width: 100%;
+      min-height: 56px;
+      padding: 0 16px;
+      border-radius: 18px;
+      color: var(--nivo-white);
+      background: rgba(5, 7, 10, 0.44);
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      outline: none;
+      transition:
+        border-color 0.22s var(--ease),
+        background 0.22s var(--ease),
+        box-shadow 0.22s var(--ease);
+    }
+
+    .register-input-wrap select {
+      appearance: none;
+      background-image:
+        linear-gradient(45deg, transparent 50%, rgba(255, 255, 255, 0.65) 50%),
+        linear-gradient(135deg, rgba(255, 255, 255, 0.65) 50%, transparent 50%);
+      background-position:
+        calc(100% - 20px) 50%,
+        calc(100% - 14px) 50%;
+      background-size: 6px 6px, 6px 6px;
+      background-repeat: no-repeat;
+    }
+
+    .register-input-wrap input::placeholder {
+      color: rgba(255, 255, 255, 0.36);
+    }
+
+    .register-input-wrap input:focus,
+    .register-input-wrap select:focus {
+      border-color: rgba(54, 231, 225, 0.50);
+      background: rgba(5, 7, 10, 0.60);
+      box-shadow: 0 0 0 4px rgba(54, 231, 225, 0.10);
+    }
+
+    .password-toggle {
+      position: absolute;
+      top: 50%;
+      right: 10px;
+      width: auto;
+      min-width: 82px;
+      min-height: 38px;
+      padding: 0 12px;
+      transform: translateY(-50%);
+      border-radius: 999px;
+      color: rgba(255, 255, 255, 0.76);
+      background: rgba(255, 255, 255, 0.075);
+      border: 1px solid rgba(255, 255, 255, 0.10);
+      font-size: 0.8rem;
+      font-weight: 900;
+      transition:
+        color 0.22s var(--ease),
+        border-color 0.22s var(--ease),
+        background 0.22s var(--ease);
+    }
+
+    .password-toggle:hover {
+      color: var(--nivo-white);
+      border-color: rgba(54, 231, 225, 0.35);
+      background: rgba(255, 255, 255, 0.10);
+    }
+
+    .role-helper {
+      display: none;
+      margin: -4px 0 16px;
+      padding: 14px 16px;
+      border-radius: 18px;
+      color: rgba(255, 255, 255, 0.78);
+      background: rgba(54, 231, 225, 0.08);
+      border: 1px solid rgba(54, 231, 225, 0.18);
+      line-height: 1.55;
+      font-size: 0.9rem;
+    }
+
+    .role-helper.show {
+      display: block;
+    }
+
+    .terms-check {
+      display: flex;
+      align-items: flex-start;
+      gap: 10px;
+      margin: 2px 0 20px;
+      line-height: 1.5;
+      cursor: pointer;
+      user-select: none;
+    }
+
+    .terms-check input {
+      width: 18px;
+      height: 18px;
+      flex: 0 0 auto;
+      margin-top: 2px;
+      accent-color: var(--nivo-cyan);
+    }
+
+    .terms-check a {
+      color: var(--nivo-cyan);
+      font-weight: 950;
+    }
+
+    .register-submit {
+      width: 100%;
+    }
+
+    .register-message {
+      display: none;
+      margin-top: 16px;
+      padding: 14px 16px;
+      border-radius: 18px;
+      color: rgba(255, 255, 255, 0.86);
+      background: rgba(255, 255, 255, 0.055);
+      border: 1px solid rgba(255, 255, 255, 0.10);
+      line-height: 1.55;
+      font-size: 0.92rem;
+    }
+
+    .register-message.show {
+      display: block;
+    }
+
+    .register-message.error {
+      color: #ffe4e6;
+      background: rgba(239, 68, 68, 0.10);
+      border-color: rgba(239, 68, 68, 0.28);
+    }
+
+    .register-message.success {
+      color: #dcfce7;
+      background: rgba(34, 197, 94, 0.10);
+      border-color: rgba(34, 197, 94, 0.28);
+    }
+
+    .register-divider {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin: 26px 0;
+      color: rgba(255, 255, 255, 0.42);
+      font-size: 0.82rem;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: 0.10em;
+    }
+
+    .register-divider::before,
+    .register-divider::after {
+      content: "";
+      height: 1px;
+      flex: 1;
+      background: rgba(255, 255, 255, 0.10);
+    }
+
+    .login-account-card {
+      display: grid;
+      gap: 14px;
+      padding: 18px;
+      border-radius: 22px;
+      background: rgba(255, 255, 255, 0.052);
+      border: 1px solid rgba(255, 255, 255, 0.09);
+    }
+
+    .login-account-card strong {
+      color: var(--nivo-white);
+      font-size: 1rem;
+    }
+
+    .login-account-card span {
+      color: var(--nivo-muted);
+      line-height: 1.55;
+      font-size: 0.92rem;
+    }
+
+    .register-security-note {
+      display: flex;
+      gap: 10px;
+      margin-top: 22px;
+      padding: 14px 16px;
+      border-radius: 18px;
+      color: rgba(255, 255, 255, 0.66);
+      background: rgba(5, 7, 10, 0.36);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      font-size: 0.84rem;
+      line-height: 1.55;
+    }
+
+    .register-security-note span {
+      width: 22px;
+      height: 22px;
+      flex: 0 0 auto;
+      display: grid;
+      place-items: center;
+      border-radius: 999px;
+      color: #031111;
+      background: var(--nivo-cyan);
+      font-size: 0.78rem;
+      font-weight: 1000;
+    }
+
+    .register-footer {
+      position: absolute;
+      left: 0;
+      right: 0;
+      bottom: 18px;
+      z-index: 6;
+      width: min(1180px, calc(100% - 36px));
+      margin-inline: auto;
+      display: flex;
+      justify-content: space-between;
+      gap: 18px;
+      align-items: center;
+      color: rgba(255, 255, 255, 0.46);
+      font-size: 0.86rem;
+    }
+
+    .register-footer-links {
+      display: flex;
+      gap: 16px;
+      align-items: center;
+    }
+
+    .register-footer-links a {
+      color: rgba(255, 255, 255, 0.56);
+      transition: color 0.22s var(--ease);
+    }
+
+    .register-footer-links a:hover {
+      color: var(--nivo-cyan);
+    }
+
+    .is-loading {
+      pointer-events: none;
+      opacity: 0.72;
+    }
+
+    .is-loading .btn-arrow {
+      animation: registerArrowPulse 0.75s ease-in-out infinite alternate;
+    }
+
+    @keyframes registerArrowPulse {
+      from {
+        transform: translateX(0);
+        opacity: 0.55;
+      }
+
+      to {
+        transform: translateX(4px);
+        opacity: 1;
+      }
+    }
+
+    @media (max-width: 1040px) {
+      .register-page {
+        padding: 104px 0 74px;
+      }
+
+      .register-shell {
+        grid-template-columns: 1fr;
+      }
+
+      .register-brand-panel {
+        min-height: auto;
+      }
+
+      .register-brand-content {
+        margin-top: 56px;
+      }
+
+      .register-card {
+        min-height: auto;
+      }
+
+      .register-footer {
+        position: relative;
+        bottom: auto;
+        margin-top: 26px;
+      }
+    }
+
+    @media (max-width: 680px) {
+      .register-page {
+        padding: 24px 0 32px;
+      }
+
+      .register-shell {
+        width: min(100% - 28px, 1180px);
+        gap: 16px;
+      }
+
+      .register-brand-panel,
+      .register-card {
+        border-radius: 32px;
+      }
+
+      .register-brand-panel {
+        padding: 24px;
+      }
+
+      .register-logo {
+        width: 132px;
+      }
+
+      .register-brand-content {
+        margin-top: 42px;
+      }
+
+      .register-brand-content h1 {
+        font-size: clamp(2.45rem, 13vw, 4rem);
+      }
+
+      .register-brand-content p {
+        font-size: 0.98rem;
+      }
+
+      .register-card {
+        padding: 24px;
+      }
+
+      .register-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .register-field.full {
+        grid-column: auto;
+      }
+
+      .password-toggle {
+        min-width: 72px;
+        padding: 0 10px;
+      }
+
+      .register-footer {
+        width: min(100% - 28px, 1180px);
+        flex-direction: column;
+        align-items: flex-start;
+      }
+
+      .register-footer-links {
+        flex-wrap: wrap;
+      }
+    }
+  </style>
+</head>
+
+<body>
+  <noscript>
+    <div class="noscript-alert">
+      Para crear una cuenta en NIVO, activa JavaScript en tu navegador.
+    </div>
+  </noscript>
+
+  <main class="register-page">
+    <div class="ambient-bg" aria-hidden="true"></div>
+    <div class="orb orb-one" aria-hidden="true"></div>
+    <div class="orb orb-two" aria-hidden="true"></div>
+    <div class="orb orb-three" aria-hidden="true"></div>
+
+    <section class="register-shell" aria-label="Registro NIVO">
+      <div class="register-brand-panel">
+        <div>
+          <a class="register-logo-link" href="index.html" aria-label="Volver al inicio de NIVO">
+            <img
+              class="register-logo"
+              src="assets/img/brand/nivo-logo-horizontal-white.png"
+              alt="NIVO"
+              width="240"
+              height="80"
+              decoding="async"
+            />
+          </a>
+
+          <div class="register-brand-content">
+            <div class="register-kicker">Crear cuenta NIVO</div>
+
+            <h1>
+              Únete al movimiento.
+              <span>Empieza desde lo local.</span>
+            </h1>
+
+            <p>
+              Regístrate como usuario, conductor, comercio o agente. NIVO organizará tu experiencia
+              según el rol que selecciones y el estado de verificación que corresponda.
+            </p>
+
+            <div class="register-proof-grid" aria-label="Beneficios de registro NIVO">
+              <div class="register-proof">
+                <div class="register-proof-icon">1</div>
+                <div>
+                  <strong>Elige tu rol</strong>
+                  <span>Selecciona cómo quieres participar dentro del ecosistema NIVO.</span>
+                </div>
+              </div>
+
+              <div class="register-proof">
+                <div class="register-proof-icon">2</div>
+                <div>
+                  <strong>Completa tu perfil</strong>
+                  <span>Los perfiles de conductor, comercio y agente requerirán revisión adicional.</span>
+                </div>
+              </div>
+
+              <div class="register-proof">
+                <div class="register-proof-icon">3</div>
+                <div>
+                  <strong>Activa tu zona</strong>
+                  <span>La operación de servicios dependerá de las zonas disponibles y habilitadas.</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <a class="register-back-link" href="index.html">
+          ← Volver a la página principal
+        </a>
+      </div>
+
+      <section class="register-card" aria-labelledby="registerTitle">
+        <div class="register-card-inner">
+          <div class="register-card-mark" aria-hidden="true">
+            <img
+              src="assets/img/brand/nivo-logo-mark.png"
+              alt=""
+              width="1024"
+              height="1024"
+              decoding="async"
+            />
+          </div>
+
+          <h2 id="registerTitle">Crear cuenta</h2>
+
+          <p>
+            Completa tus datos para iniciar tu registro en NIVO.
+          </p>
+
+          <form class="register-form" id="registerForm" novalidate>
+            <div class="register-grid">
+              <div class="register-field">
+                <label for="fullName">Nombre completo</label>
+                <div class="register-input-wrap">
+                  <input
+                    id="fullName"
+                    name="fullName"
+                    type="text"
+                    autocomplete="name"
+                    placeholder="Tu nombre completo"
+                    required
+                  />
+                </div>
+              </div>
+
+              <div class="register-field">
+                <label for="phone">Teléfono / WhatsApp</label>
+                <div class="register-input-wrap">
+                  <input
+                    id="phone"
+                    name="phone"
+                    type="tel"
+                    inputmode="tel"
+                    autocomplete="tel"
+                    placeholder="Ej. 7000-0000"
+                    required
+                  />
+                </div>
+              </div>
+
+              <div class="register-field">
+                <label for="email">Correo electrónico</label>
+                <div class="register-input-wrap">
+                  <input
+                    id="email"
+                    name="email"
+                    type="email"
+                    inputmode="email"
+                    autocomplete="email"
+                    placeholder="tu@email.com"
+                    required
+                  />
+                </div>
+              </div>
+
+              <div class="register-field">
+                <label for="accountType">Tipo de cuenta</label>
+                <div class="register-input-wrap">
+                  <select id="accountType" name="accountType" required>
+                    <option value="">Selecciona una opción</option>
+                    <option value="user">Usuario</option>
+                    <option value="driver">Conductor / Repartidor</option>
+                    <option value="commerce">Comercio</option>
+                    <option value="agent">Agente NIVO</option>
+                  </select>
+                </div>
+              </div>
+
+              <div class="register-field">
+                <label for="department">Departamento</label>
+                <div class="register-input-wrap">
+                  <input
+                    id="department"
+                    name="department"
+                    type="text"
+                    autocomplete="address-level1"
+                    placeholder="Ej. Ahuachapán"
+                    required
+                  />
+                </div>
+              </div>
+
+              <div class="register-field">
+                <label for="municipality">Municipio</label>
+                <div class="register-input-wrap">
+                  <input
+                    id="municipality"
+                    name="municipality"
+                    type="text"
+                    autocomplete="address-level2"
+                    placeholder="Ej. Ahuachapán"
+                    required
+                  />
+                </div>
+              </div>
+
+              <div class="register-field">
+                <label for="password">Contraseña</label>
+                <div class="register-input-wrap">
+                  <input
+                    id="password"
+                    name="password"
+                    type="password"
+                    autocomplete="new-password"
+                    placeholder="Mínimo 6 caracteres"
+                    minlength="6"
+                    required
+                  />
+
+                  <button
+                    class="password-toggle"
+                    data-target="password"
+                    type="button"
+                    aria-label="Mostrar contraseña"
+                    aria-controls="password"
+                    aria-pressed="false"
+                  >
+                    Mostrar
+                  </button>
+                </div>
+              </div>
+
+              <div class="register-field">
+                <label for="confirmPassword">Confirmar contraseña</label>
+                <div class="register-input-wrap">
+                  <input
+                    id="confirmPassword"
+                    name="confirmPassword"
+                    type="password"
+                    autocomplete="new-password"
+                    placeholder="Repite tu contraseña"
+                    minlength="6"
+                    required
+                  />
+
+                  <button
+                    class="password-toggle"
+                    data-target="confirmPassword"
+                    type="button"
+                    aria-label="Mostrar confirmación de contraseña"
+                    aria-controls="confirmPassword"
+                    aria-pressed="false"
+                  >
+                    Mostrar
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <div class="role-helper" id="roleHelper" role="status" aria-live="polite"></div>
+
+            <label class="terms-check" for="acceptTerms">
+              <input id="acceptTerms" name="acceptTerms" type="checkbox" required />
+              <span>
+                Acepto los <a href="terms.html">Términos</a>, la <a href="privacy.html">Política de Privacidad</a>
+                y las reglas de comunidad de NIVO.
+              </span>
+            </label>
+
+            <button class="btn btn-primary register-submit" id="registerSubmit" type="submit">
+              Crear cuenta
+              <span class="btn-arrow" aria-hidden="true">→</span>
+            </button>
+
+            <div
+              class="register-message"
+              id="registerMessage"
+              role="status"
+              aria-live="polite"
+            ></div>
+          </form>
+
+          <div class="register-divider">o</div>
+
+          <div class="login-account-card">
+            <strong>¿Ya tienes cuenta?</strong>
+            <span>
+              Inicia sesión para continuar con tu perfil NIVO.
+            </span>
+
+            <a class="btn btn-secondary" href="login.html">
+              Iniciar sesión
+            </a>
+          </div>
+
+          <div class="register-security-note">
+            <span>✓</span>
+            <p>
+              El registro se valida con Firebase Auth y luego crea el perfil correspondiente en Firestore.
+              Las cuentas administrativas no se registran públicamente; deben asignarse manualmente desde administración.
+            </p>
+          </div>
+        </div>
+      </section>
+    </section>
+
+    <footer class="register-footer">
+      <span>© <span id="year"></span> NIVO. Todos los derechos reservados.</span>
+
+      <div class="register-footer-links">
+        <a href="index.html">Inicio</a>
+        <a href="privacy.html">Privacidad</a>
+        <a href="terms.html">Términos</a>
+      </div>
+    </footer>
+  </main>
+
+  <script type="module" src="assets/js/auth.js"></script>
+
+  <script>
+    (function () {
+      const year = document.getElementById("year");
+      const form = document.getElementById("registerForm");
+      const fullNameInput = document.getElementById("fullName");
+      const phoneInput = document.getElementById("phone");
+      const emailInput = document.getElementById("email");
+      const accountTypeInput = document.getElementById("accountType");
+      const departmentInput = document.getElementById("department");
+      const municipalityInput = document.getElementById("municipality");
+      const passwordInput = document.getElementById("password");
+      const confirmPasswordInput = document.getElementById("confirmPassword");
+      const acceptTermsInput = document.getElementById("acceptTerms");
+      const submitButton = document.getElementById("registerSubmit");
+      const registerMessage = document.getElementById("registerMessage");
+      const roleHelper = document.getElementById("roleHelper");
+      const interactiveCards = document.querySelectorAll(".register-brand-panel, .register-card");
+
+      const roleMessages = {
+        user: "Crearás una cuenta de usuario para usar NIVO, recibir novedades y acceder a servicios cuando tu zona esté disponible.",
+        driver: "Crearás una cuenta de conductor/repartidor. Después deberás completar zona, vehículo, servicios y documentos para revisión.",
+        commerce: "Crearás una cuenta de comercio. Después deberás completar los datos del negocio para revisión y activación.",
+        agent: "Crearás una cuenta de agente NIVO. Después deberás completar tus datos operativos para revisión y autorización."
+      };
+
+      if (year) {
+        year.textContent = new Date().getFullYear();
+      }
+
+      interactiveCards.forEach((card) => {
+        card.addEventListener("mousemove", (event) => {
+          const rect = card.getBoundingClientRect();
+          const x = ((event.clientX - rect.left) / rect.width) * 100;
+          const y = ((event.clientY - rect.top) / rect.height) * 100;
+
+          card.style.setProperty("--mouse-x", `${x}%`);
+          card.style.setProperty("--mouse-y", `${y}%`);
+        });
+      });
+
+      function setMessage(type, message) {
+        if (!registerMessage) return;
+
+        registerMessage.className = "register-message show";
+
+        if (type) {
+          registerMessage.classList.add(type);
+        }
+
+        registerMessage.textContent = message;
+      }
+
+      function clearMessage() {
+        if (!registerMessage) return;
+
+        registerMessage.className = "register-message";
+        registerMessage.textContent = "";
+      }
+
+      function setLoading(isLoading) {
+        if (!submitButton || !form) return;
+
+        submitButton.classList.toggle("is-loading", isLoading);
+        submitButton.disabled = isLoading;
+        form.classList.toggle("is-loading", isLoading);
+      }
+
+      function isValidEmail(value) {
+        return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
+      }
+
+      function normalizePhone(value) {
+        return value.replace(/[^\d+]/g, "");
+      }
+
+      document.querySelectorAll(".password-toggle").forEach((button) => {
+        button.addEventListener("click", () => {
+          const targetId = button.getAttribute("data-target");
+          const targetInput = targetId ? document.getElementById(targetId) : null;
+
+          if (!targetInput) return;
+
+          const isPassword = targetInput.type === "password";
+
+          targetInput.type = isPassword ? "text" : "password";
+          button.textContent = isPassword ? "Ocultar" : "Mostrar";
+          button.setAttribute("aria-label", isPassword ? "Ocultar contraseña" : "Mostrar contraseña");
+          button.setAttribute("aria-pressed", String(isPassword));
+          targetInput.focus();
+        });
+      });
+
+      if (accountTypeInput && roleHelper) {
+        accountTypeInput.addEventListener("change", () => {
+          const value = accountTypeInput.value;
+          const message = roleMessages[value];
+
+          if (!message) {
+            roleHelper.className = "role-helper";
+            roleHelper.textContent = "";
+            return;
+          }
+
+          roleHelper.className = "role-helper show";
+          roleHelper.textContent = message;
+        });
+      }
+
+      if (form) {
+        form.addEventListener("submit", async (event) => {
+          event.preventDefault();
+          clearMessage();
+
+          const fullName = fullNameInput ? fullNameInput.value.trim() : "";
+          const phone = phoneInput ? normalizePhone(phoneInput.value.trim()) : "";
+          const email = emailInput ? emailInput.value.trim() : "";
+          const accountType = accountTypeInput ? accountTypeInput.value : "";
+          const department = departmentInput ? departmentInput.value.trim() : "";
+          const municipality = municipalityInput ? municipalityInput.value.trim() : "";
+          const password = passwordInput ? passwordInput.value : "";
+          const confirmPassword = confirmPasswordInput ? confirmPasswordInput.value : "";
+          const acceptedTerms = Boolean(acceptTermsInput && acceptTermsInput.checked);
+
+          if (fullName.length < 3) {
+            setMessage("error", "Ingresa tu nombre completo para continuar.");
+            fullNameInput?.focus();
+            return;
+          }
+
+          if (phone.length < 8) {
+            setMessage("error", "Ingresa un teléfono válido para continuar.");
+            phoneInput?.focus();
+            return;
+          }
+
+          if (!email || !isValidEmail(email)) {
+            setMessage("error", "Ingresa un correo electrónico válido.");
+            emailInput?.focus();
+            return;
+          }
+
+          if (!accountType) {
+            setMessage("error", "Selecciona el tipo de cuenta que deseas crear.");
+            accountTypeInput?.focus();
+            return;
+          }
+
+          if (department.length < 3) {
+            setMessage("error", "Ingresa tu departamento.");
+            departmentInput?.focus();
+            return;
+          }
+
+          if (municipality.length < 3) {
+            setMessage("error", "Ingresa tu municipio.");
+            municipalityInput?.focus();
+            return;
+          }
+
+          if (!password || password.length < 6) {
+            setMessage("error", "La contraseña debe tener al menos 6 caracteres.");
+            passwordInput?.focus();
+            return;
+          }
+
+          if (password !== confirmPassword) {
+            setMessage("error", "Las contraseñas no coinciden.");
+            confirmPasswordInput?.focus();
+            return;
+          }
+
+          if (!acceptedTerms) {
+            setMessage("error", "Debes aceptar los términos y la política de privacidad para continuar.");
+            acceptTermsInput?.focus();
+            return;
+          }
+
+          setLoading(true);
+          setMessage("success", "Creando cuenta NIVO...");
+
+          try {
+            if (typeof window.NIVOAuthRegisterHandler !== "function") {
+              throw new Error(
+                "No se pudo cargar assets/js/auth.js. Revisa que el archivo exista y que esté publicado correctamente."
+              );
+            }
+
+            await window.NIVOAuthRegisterHandler({
+              fullName,
+              phone,
+              email,
+              password,
+              role: accountType,
+              country: "SV",
+              department,
+              municipality,
+              acceptedTerms: true,
+              source: "nivo_web_register"
+            });
+          } catch (error) {
+            setLoading(false);
+            setMessage(
+              "error",
+              error && error.message
+                ? error.message
+                : "No se pudo crear la cuenta. Revisa tus datos e intenta nuevamente."
+            );
+          }
+        });
+      }
+    })();
+  </script>
+</body>
+</html>

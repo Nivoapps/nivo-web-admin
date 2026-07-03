@@ -1,0 +1,990 @@
+<!DOCTYPE html>
+<html lang="es-SV">
+<head>
+  <meta charset="UTF-8" />
+  <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+  <title>Iniciar sesión | NIVO</title>
+
+  <meta
+    name="description"
+    content="Inicia sesión en NIVO para acceder a tu cuenta y continuar con la experiencia correspondiente según tu rol."
+  />
+  <meta name="robots" content="noindex, nofollow" />
+  <meta name="author" content="NIVO" />
+  <meta name="theme-color" content="#05070A" />
+  <meta name="format-detection" content="telephone=no" />
+
+  <meta property="og:title" content="Iniciar sesión | NIVO" />
+  <meta
+    property="og:description"
+    content="Accede a tu cuenta NIVO de forma segura."
+  />
+  <meta property="og:type" content="website" />
+  <meta property="og:locale" content="es_SV" />
+  <meta property="og:site_name" content="NIVO" />
+  <meta property="og:image" content="assets/img/social/og-nivo-home.png" />
+
+  <link rel="icon" href="assets/img/favicon/favicon.ico" sizes="any" />
+  <link rel="icon" type="image/png" sizes="16x16" href="assets/img/favicon/favicon-16x16.png" />
+  <link rel="icon" type="image/png" sizes="32x32" href="assets/img/favicon/favicon-32x32.png" />
+  <link rel="apple-touch-icon" href="assets/img/favicon/apple-touch-icon.png" />
+
+  <link rel="preload" as="image" href="assets/img/brand/nivo-logo-horizontal-white.png" />
+  <link rel="preload" as="image" href="assets/img/hero/hero-bg-ahuachapan.png" />
+
+  <link rel="stylesheet" href="assets/css/styles.css" />
+
+  <style>
+    .auth-page {
+      position: relative;
+      min-height: 100svh;
+      display: grid;
+      place-items: center;
+      padding: 112px 0 56px;
+      overflow: hidden;
+      isolation: isolate;
+      background: #05070a;
+    }
+
+    .auth-page::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      z-index: 0;
+      background:
+        linear-gradient(
+          90deg,
+          rgba(5, 7, 10, 0.92) 0%,
+          rgba(5, 7, 10, 0.72) 42%,
+          rgba(5, 7, 10, 0.88) 100%
+        ),
+        linear-gradient(
+          to bottom,
+          rgba(5, 7, 10, 0.58) 0%,
+          rgba(5, 7, 10, 0.18) 42%,
+          #05070a 100%
+        ),
+        url("assets/img/hero/hero-bg-ahuachapan.png");
+      background-size: cover;
+      background-position: center;
+      opacity: 0.96;
+      transform: scale(1.02);
+    }
+
+    .auth-page::after {
+      content: "";
+      position: absolute;
+      inset: 0;
+      z-index: 1;
+      pointer-events: none;
+      background:
+        radial-gradient(circle at 18% 24%, rgba(54, 231, 225, 0.18), transparent 30%),
+        radial-gradient(circle at 78% 20%, rgba(139, 92, 246, 0.16), transparent 30%),
+        radial-gradient(circle at 54% 86%, rgba(54, 231, 225, 0.10), transparent 36%);
+      mix-blend-mode: screen;
+    }
+
+    .auth-shell {
+      position: relative;
+      z-index: 5;
+      width: min(1120px, calc(100% - 36px));
+      display: grid;
+      grid-template-columns: minmax(0, 0.95fr) minmax(420px, 0.78fr);
+      align-items: stretch;
+      gap: 24px;
+    }
+
+    .auth-brand-panel,
+    .auth-card {
+      border-radius: var(--radius-xl);
+      border: 1px solid rgba(255, 255, 255, 0.11);
+      background:
+        radial-gradient(circle at var(--mouse-x, 40%) var(--mouse-y, 0%), rgba(54, 231, 225, 0.16), transparent 36%),
+        linear-gradient(180deg, rgba(255, 255, 255, 0.090), rgba(255, 255, 255, 0.035));
+      box-shadow: var(--shadow-lg);
+      backdrop-filter: blur(24px);
+      overflow: hidden;
+    }
+
+    .auth-brand-panel {
+      position: relative;
+      min-height: 650px;
+      padding: clamp(30px, 5vw, 56px);
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      isolation: isolate;
+    }
+
+    .auth-brand-panel::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      z-index: -2;
+      background:
+        linear-gradient(to bottom, rgba(5, 7, 10, 0.08), rgba(5, 7, 10, 0.70)),
+        url("assets/img/sections/section-security.png");
+      background-size: cover;
+      background-position: center;
+      opacity: 0.42;
+      filter: saturate(0.95) contrast(1.08);
+    }
+
+    .auth-brand-panel::after {
+      content: "";
+      position: absolute;
+      inset: 0;
+      z-index: -1;
+      background-image:
+        linear-gradient(rgba(255, 255, 255, 0.028) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(255, 255, 255, 0.028) 1px, transparent 1px);
+      background-size: 38px 38px;
+      mask-image: linear-gradient(to bottom, black, transparent 82%);
+      pointer-events: none;
+    }
+
+    .auth-logo-link {
+      display: inline-flex;
+      align-items: center;
+      width: fit-content;
+    }
+
+    .auth-logo {
+      width: 168px;
+      height: auto;
+      object-fit: contain;
+      filter: drop-shadow(0 0 24px rgba(54, 231, 225, 0.18));
+    }
+
+    .auth-brand-content {
+      max-width: 600px;
+      margin-top: 70px;
+    }
+
+    .auth-kicker {
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      width: fit-content;
+      padding: 9px 12px;
+      border-radius: 999px;
+      color: var(--nivo-soft);
+      background: rgba(5, 7, 10, 0.46);
+      border: 1px solid rgba(54, 231, 225, 0.28);
+      backdrop-filter: blur(18px);
+      font-size: 0.78rem;
+      font-weight: 950;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+    }
+
+    .auth-kicker::before {
+      content: "";
+      width: 9px;
+      height: 9px;
+      border-radius: 99px;
+      background: var(--nivo-cyan);
+      box-shadow: 0 0 16px var(--nivo-cyan);
+    }
+
+    .auth-brand-content h1 {
+      margin-top: 24px;
+      max-width: 650px;
+      font-size: clamp(2.8rem, 6vw, 5.4rem);
+      line-height: 0.96;
+      letter-spacing: -0.075em;
+      font-weight: 1000;
+      text-shadow: 0 28px 84px rgba(0, 0, 0, 0.50);
+    }
+
+    .auth-brand-content h1 span {
+      display: block;
+      margin-top: 12px;
+      background: linear-gradient(90deg, #ffffff 0%, #effffe 32%, var(--nivo-cyan) 100%);
+      -webkit-background-clip: text;
+      background-clip: text;
+      color: transparent;
+    }
+
+    .auth-brand-content p {
+      max-width: 560px;
+      margin-top: 22px;
+      color: rgba(255, 255, 255, 0.76);
+      font-size: 1.05rem;
+      line-height: 1.78;
+      text-shadow: 0 18px 46px rgba(0, 0, 0, 0.54);
+    }
+
+    .auth-proof-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 12px;
+      margin-top: 34px;
+    }
+
+    .auth-proof {
+      min-height: 104px;
+      padding: 16px;
+      border-radius: 22px;
+      background: rgba(5, 7, 10, 0.46);
+      border: 1px solid rgba(255, 255, 255, 0.11);
+      backdrop-filter: blur(18px);
+      box-shadow: 0 20px 54px rgba(0, 0, 0, 0.20);
+    }
+
+    .auth-proof strong {
+      display: block;
+      color: var(--nivo-white);
+      font-size: 0.98rem;
+      line-height: 1.2;
+    }
+
+    .auth-proof span {
+      display: block;
+      margin-top: 8px;
+      color: var(--nivo-muted);
+      font-size: 0.82rem;
+      line-height: 1.45;
+    }
+
+    .auth-back-link {
+      display: inline-flex;
+      align-items: center;
+      gap: 9px;
+      width: fit-content;
+      margin-top: 34px;
+      color: rgba(255, 255, 255, 0.74);
+      font-weight: 850;
+      transition:
+        color 0.25s var(--ease),
+        transform 0.25s var(--ease);
+    }
+
+    .auth-back-link:hover {
+      color: var(--nivo-cyan);
+      transform: translateX(-3px);
+    }
+
+    .auth-card {
+      position: relative;
+      min-height: 650px;
+      padding: clamp(26px, 4vw, 42px);
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+    }
+
+    .auth-card::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background-image:
+        linear-gradient(rgba(255, 255, 255, 0.025) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(255, 255, 255, 0.025) 1px, transparent 1px);
+      background-size: 34px 34px;
+      mask-image: linear-gradient(to bottom, black, transparent 76%);
+      pointer-events: none;
+      opacity: 0.8;
+    }
+
+    .auth-card-inner {
+      position: relative;
+      z-index: 2;
+    }
+
+    .auth-card-mark {
+      width: 64px;
+      height: 64px;
+      display: grid;
+      place-items: center;
+      border-radius: 22px;
+      margin-bottom: 24px;
+      background: linear-gradient(135deg, var(--nivo-cyan), var(--nivo-cyan-2));
+      box-shadow:
+        0 0 0 12px rgba(54, 231, 225, 0.08),
+        0 0 54px rgba(54, 231, 225, 0.28);
+    }
+
+    .auth-card-mark img {
+      width: 40px;
+      height: 40px;
+      object-fit: contain;
+    }
+
+    .auth-card h2 {
+      font-size: clamp(2rem, 4vw, 3.15rem);
+      line-height: 1;
+      letter-spacing: -0.055em;
+      font-weight: 1000;
+    }
+
+    .auth-card p {
+      margin-top: 14px;
+      color: var(--nivo-muted);
+      line-height: 1.7;
+    }
+
+    .auth-form {
+      margin-top: 30px;
+    }
+
+    .auth-field {
+      display: grid;
+      gap: 9px;
+      margin-bottom: 16px;
+    }
+
+    .auth-field label,
+    .auth-options label {
+      color: rgba(255, 255, 255, 0.80);
+      font-size: 0.9rem;
+      font-weight: 850;
+    }
+
+    .auth-input-wrap {
+      position: relative;
+    }
+
+    .auth-input-wrap input {
+      width: 100%;
+      min-height: 56px;
+      padding: 0 16px;
+      border-radius: 18px;
+      color: var(--nivo-white);
+      background: rgba(5, 7, 10, 0.44);
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      outline: none;
+      transition:
+        border-color 0.22s var(--ease),
+        background 0.22s var(--ease),
+        box-shadow 0.22s var(--ease);
+    }
+
+    .auth-input-wrap input::placeholder {
+      color: rgba(255, 255, 255, 0.36);
+    }
+
+    .auth-input-wrap input:focus {
+      border-color: rgba(54, 231, 225, 0.50);
+      background: rgba(5, 7, 10, 0.60);
+      box-shadow: 0 0 0 4px rgba(54, 231, 225, 0.10);
+    }
+
+    .password-toggle {
+      position: absolute;
+      top: 50%;
+      right: 10px;
+      width: auto;
+      min-width: 82px;
+      min-height: 38px;
+      padding: 0 12px;
+      transform: translateY(-50%);
+      border-radius: 999px;
+      color: rgba(255, 255, 255, 0.76);
+      background: rgba(255, 255, 255, 0.075);
+      border: 1px solid rgba(255, 255, 255, 0.10);
+      font-size: 0.8rem;
+      font-weight: 900;
+      transition:
+        color 0.22s var(--ease),
+        border-color 0.22s var(--ease),
+        background 0.22s var(--ease);
+    }
+
+    .password-toggle:hover {
+      color: var(--nivo-white);
+      border-color: rgba(54, 231, 225, 0.35);
+      background: rgba(255, 255, 255, 0.10);
+    }
+
+    .auth-options {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 14px;
+      margin: 10px 0 20px;
+    }
+
+    .remember-check {
+      display: inline-flex;
+      align-items: center;
+      gap: 9px;
+      width: fit-content;
+      cursor: pointer;
+      user-select: none;
+    }
+
+    .remember-check input {
+      width: 18px;
+      height: 18px;
+      accent-color: var(--nivo-cyan);
+    }
+
+    .forgot-link {
+      color: var(--nivo-cyan);
+      font-size: 0.9rem;
+      font-weight: 900;
+      white-space: nowrap;
+      transition:
+        color 0.22s var(--ease),
+        opacity 0.22s var(--ease);
+    }
+
+    .forgot-link:hover {
+      color: var(--nivo-cyan-2);
+    }
+
+    .auth-submit {
+      width: 100%;
+    }
+
+    .auth-message {
+      display: none;
+      margin-top: 16px;
+      padding: 14px 16px;
+      border-radius: 18px;
+      color: rgba(255, 255, 255, 0.86);
+      background: rgba(255, 255, 255, 0.055);
+      border: 1px solid rgba(255, 255, 255, 0.10);
+      line-height: 1.55;
+      font-size: 0.92rem;
+    }
+
+    .auth-message.show {
+      display: block;
+    }
+
+    .auth-message.error {
+      color: #ffe4e6;
+      background: rgba(239, 68, 68, 0.10);
+      border-color: rgba(239, 68, 68, 0.28);
+    }
+
+    .auth-message.success {
+      color: #dcfce7;
+      background: rgba(34, 197, 94, 0.10);
+      border-color: rgba(34, 197, 94, 0.28);
+    }
+
+    .auth-divider {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin: 26px 0;
+      color: rgba(255, 255, 255, 0.42);
+      font-size: 0.82rem;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: 0.10em;
+    }
+
+    .auth-divider::before,
+    .auth-divider::after {
+      content: "";
+      height: 1px;
+      flex: 1;
+      background: rgba(255, 255, 255, 0.10);
+    }
+
+    .create-account-card {
+      display: grid;
+      gap: 14px;
+      padding: 18px;
+      border-radius: 22px;
+      background: rgba(255, 255, 255, 0.052);
+      border: 1px solid rgba(255, 255, 255, 0.09);
+    }
+
+    .create-account-card strong {
+      color: var(--nivo-white);
+      font-size: 1rem;
+    }
+
+    .create-account-card span {
+      color: var(--nivo-muted);
+      line-height: 1.55;
+      font-size: 0.92rem;
+    }
+
+    .auth-register-link {
+      width: 100%;
+    }
+
+    .auth-security-note {
+      display: flex;
+      gap: 10px;
+      margin-top: 22px;
+      padding: 14px 16px;
+      border-radius: 18px;
+      color: rgba(255, 255, 255, 0.66);
+      background: rgba(5, 7, 10, 0.36);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      font-size: 0.84rem;
+      line-height: 1.55;
+    }
+
+    .auth-security-note span {
+      width: 22px;
+      height: 22px;
+      flex: 0 0 auto;
+      display: grid;
+      place-items: center;
+      border-radius: 999px;
+      color: #031111;
+      background: var(--nivo-cyan);
+      font-size: 0.78rem;
+      font-weight: 1000;
+    }
+
+    .auth-footer {
+      position: absolute;
+      left: 0;
+      right: 0;
+      bottom: 18px;
+      z-index: 6;
+      width: min(1120px, calc(100% - 36px));
+      margin-inline: auto;
+      display: flex;
+      justify-content: space-between;
+      gap: 18px;
+      align-items: center;
+      color: rgba(255, 255, 255, 0.46);
+      font-size: 0.86rem;
+    }
+
+    .auth-footer-links {
+      display: flex;
+      gap: 16px;
+      align-items: center;
+    }
+
+    .auth-footer-links a {
+      color: rgba(255, 255, 255, 0.56);
+      transition: color 0.22s var(--ease);
+    }
+
+    .auth-footer-links a:hover {
+      color: var(--nivo-cyan);
+    }
+
+    .is-loading {
+      pointer-events: none;
+      opacity: 0.72;
+    }
+
+    .is-loading .btn-arrow {
+      animation: authArrowPulse 0.75s ease-in-out infinite alternate;
+    }
+
+    @keyframes authArrowPulse {
+      from {
+        transform: translateX(0);
+        opacity: 0.55;
+      }
+
+      to {
+        transform: translateX(4px);
+        opacity: 1;
+      }
+    }
+
+    @media (max-width: 980px) {
+      .auth-page {
+        padding: 104px 0 74px;
+      }
+
+      .auth-shell {
+        grid-template-columns: 1fr;
+      }
+
+      .auth-brand-panel {
+        min-height: auto;
+      }
+
+      .auth-brand-content {
+        margin-top: 56px;
+      }
+
+      .auth-proof-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .auth-card {
+        min-height: auto;
+      }
+
+      .auth-footer {
+        position: relative;
+        bottom: auto;
+        margin-top: 26px;
+      }
+    }
+
+    @media (max-width: 640px) {
+      .auth-page {
+        padding: 24px 0 32px;
+      }
+
+      .auth-shell {
+        width: min(100% - 28px, 1120px);
+        gap: 16px;
+      }
+
+      .auth-brand-panel,
+      .auth-card {
+        border-radius: 32px;
+      }
+
+      .auth-brand-panel {
+        padding: 24px;
+      }
+
+      .auth-logo {
+        width: 132px;
+      }
+
+      .auth-brand-content {
+        margin-top: 42px;
+      }
+
+      .auth-brand-content h1 {
+        font-size: clamp(2.45rem, 13vw, 4rem);
+      }
+
+      .auth-brand-content p {
+        font-size: 0.98rem;
+      }
+
+      .auth-card {
+        padding: 24px;
+      }
+
+      .auth-options {
+        align-items: flex-start;
+        flex-direction: column;
+      }
+
+      .forgot-link {
+        white-space: normal;
+      }
+
+      .auth-footer {
+        width: min(100% - 28px, 1120px);
+        flex-direction: column;
+        align-items: flex-start;
+      }
+
+      .auth-footer-links {
+        flex-wrap: wrap;
+      }
+    }
+  </style>
+</head>
+
+<body>
+  <noscript>
+    <div class="noscript-alert">
+      Para iniciar sesión en NIVO, activa JavaScript en tu navegador.
+    </div>
+  </noscript>
+
+  <main class="auth-page">
+    <div class="ambient-bg" aria-hidden="true"></div>
+    <div class="orb orb-one" aria-hidden="true"></div>
+    <div class="orb orb-two" aria-hidden="true"></div>
+    <div class="orb orb-three" aria-hidden="true"></div>
+
+    <section class="auth-shell" aria-label="Inicio de sesión NIVO">
+      <div class="auth-brand-panel">
+        <div>
+          <a class="auth-logo-link" href="index.html" aria-label="Volver al inicio de NIVO">
+            <img
+              class="auth-logo"
+              src="assets/img/brand/nivo-logo-horizontal-white.png"
+              alt="NIVO"
+              width="240"
+              height="80"
+              decoding="async"
+            />
+          </a>
+
+          <div class="auth-brand-content">
+            <div class="auth-kicker">Acceso seguro NIVO</div>
+
+            <h1>
+              Entra a tu cuenta.
+              <span>Continúa tu movimiento.</span>
+            </h1>
+
+            <p>
+              Inicia sesión con tu cuenta NIVO. La plataforma reconocerá tu rol y te llevará a la experiencia
+              correspondiente: usuario, conductor, comercio, agente o administración autorizada.
+            </p>
+
+            <div class="auth-proof-grid" aria-label="Características de acceso NIVO">
+              <div class="auth-proof">
+                <strong>Un solo acceso</strong>
+                <span>Una cuenta para identificar tu rol dentro del ecosistema NIVO.</span>
+              </div>
+
+              <div class="auth-proof">
+                <strong>Roles controlados</strong>
+                <span>La redirección dependerá de los permisos y el estado de cada cuenta.</span>
+              </div>
+
+              <div class="auth-proof">
+                <strong>Operación segura</strong>
+                <span>Conectado a Firebase Auth, Firestore y validación por perfiles.</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <a class="auth-back-link" href="index.html">
+          ← Volver a la página principal
+        </a>
+      </div>
+
+      <section class="auth-card" aria-labelledby="loginTitle">
+        <div class="auth-card-inner">
+          <div class="auth-card-mark" aria-hidden="true">
+            <img
+              src="assets/img/brand/nivo-logo-mark.png"
+              alt=""
+              width="1024"
+              height="1024"
+              decoding="async"
+            />
+          </div>
+
+          <h2 id="loginTitle">Iniciar sesión</h2>
+
+          <p>
+            Usa tu correo y contraseña para acceder a tu cuenta NIVO.
+          </p>
+
+          <form class="auth-form" id="loginForm" novalidate>
+            <div class="auth-field">
+              <label for="email">Correo electrónico</label>
+              <div class="auth-input-wrap">
+                <input
+                  id="email"
+                  name="email"
+                  type="email"
+                  inputmode="email"
+                  autocomplete="email"
+                  placeholder="tu@email.com"
+                  required
+                />
+              </div>
+            </div>
+
+            <div class="auth-field">
+              <label for="password">Contraseña</label>
+              <div class="auth-input-wrap">
+                <input
+                  id="password"
+                  name="password"
+                  type="password"
+                  autocomplete="current-password"
+                  placeholder="Ingresa tu contraseña"
+                  minlength="6"
+                  required
+                />
+
+                <button
+                  class="password-toggle"
+                  id="passwordToggle"
+                  type="button"
+                  aria-label="Mostrar contraseña"
+                  aria-controls="password"
+                  aria-pressed="false"
+                >
+                  Mostrar
+                </button>
+              </div>
+            </div>
+
+            <div class="auth-options">
+              <label class="remember-check" for="rememberMe">
+                <input id="rememberMe" name="rememberMe" type="checkbox" />
+                Recordarme
+              </label>
+
+              <a class="forgot-link" href="forgot-password.html">
+                ¿Olvidaste tu contraseña?
+              </a>
+            </div>
+
+            <button class="btn btn-primary auth-submit" id="loginSubmit" type="submit">
+              Iniciar sesión
+              <span class="btn-arrow" aria-hidden="true">→</span>
+            </button>
+
+            <div
+              class="auth-message"
+              id="authMessage"
+              role="status"
+              aria-live="polite"
+            ></div>
+          </form>
+
+          <div class="auth-divider">o</div>
+
+          <div class="create-account-card">
+            <strong>¿Todavía no tienes cuenta?</strong>
+            <span>
+              Crea una cuenta NIVO y selecciona cómo quieres participar dentro de la plataforma.
+            </span>
+
+            <a class="btn btn-secondary auth-register-link" href="register.html">
+              Registrarse
+            </a>
+          </div>
+
+          <div class="auth-security-note">
+            <span>✓</span>
+            <p>
+              El acceso se valida con Firebase Auth y luego se consulta Firestore para resolver el rol,
+              estado y destino correspondiente de cada cuenta.
+            </p>
+          </div>
+        </div>
+      </section>
+    </section>
+
+    <footer class="auth-footer">
+      <span>© <span id="year"></span> NIVO. Todos los derechos reservados.</span>
+
+      <div class="auth-footer-links">
+        <a href="index.html">Inicio</a>
+        <a href="privacy.html">Privacidad</a>
+        <a href="terms.html">Términos</a>
+      </div>
+    </footer>
+  </main>
+
+  <script type="module" src="assets/js/auth.js"></script>
+
+  <script>
+    (function () {
+      const year = document.getElementById("year");
+      const form = document.getElementById("loginForm");
+      const emailInput = document.getElementById("email");
+      const passwordInput = document.getElementById("password");
+      const passwordToggle = document.getElementById("passwordToggle");
+      const submitButton = document.getElementById("loginSubmit");
+      const authMessage = document.getElementById("authMessage");
+      const interactiveCards = document.querySelectorAll(".auth-brand-panel, .auth-card");
+
+      if (year) {
+        year.textContent = new Date().getFullYear();
+      }
+
+      interactiveCards.forEach((card) => {
+        card.addEventListener("mousemove", (event) => {
+          const rect = card.getBoundingClientRect();
+          const x = ((event.clientX - rect.left) / rect.width) * 100;
+          const y = ((event.clientY - rect.top) / rect.height) * 100;
+
+          card.style.setProperty("--mouse-x", `${x}%`);
+          card.style.setProperty("--mouse-y", `${y}%`);
+        });
+      });
+
+      function setMessage(type, message) {
+        if (!authMessage) return;
+
+        authMessage.className = "auth-message show";
+
+        if (type) {
+          authMessage.classList.add(type);
+        }
+
+        authMessage.textContent = message;
+      }
+
+      function clearMessage() {
+        if (!authMessage) return;
+
+        authMessage.className = "auth-message";
+        authMessage.textContent = "";
+      }
+
+      function setLoading(isLoading) {
+        if (!submitButton || !form) return;
+
+        submitButton.classList.toggle("is-loading", isLoading);
+        submitButton.disabled = isLoading;
+        form.classList.toggle("is-loading", isLoading);
+      }
+
+      function isValidEmail(value) {
+        return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
+      }
+
+      if (passwordToggle && passwordInput) {
+        passwordToggle.addEventListener("click", () => {
+          const isPassword = passwordInput.type === "password";
+
+          passwordInput.type = isPassword ? "text" : "password";
+          passwordToggle.textContent = isPassword ? "Ocultar" : "Mostrar";
+          passwordToggle.setAttribute("aria-label", isPassword ? "Ocultar contraseña" : "Mostrar contraseña");
+          passwordToggle.setAttribute("aria-pressed", String(isPassword));
+          passwordInput.focus();
+        });
+      }
+
+      if (form) {
+        form.addEventListener("submit", async (event) => {
+          event.preventDefault();
+          clearMessage();
+
+          const email = emailInput ? emailInput.value.trim() : "";
+          const password = passwordInput ? passwordInput.value : "";
+          const remember = Boolean(document.getElementById("rememberMe")?.checked);
+
+          if (!email || !isValidEmail(email)) {
+            setMessage("error", "Ingresa un correo electrónico válido para continuar.");
+            emailInput?.focus();
+            return;
+          }
+
+          if (!password || password.length < 6) {
+            setMessage("error", "La contraseña debe tener al menos 6 caracteres.");
+            passwordInput?.focus();
+            return;
+          }
+
+          setLoading(true);
+          setMessage("success", "Validando acceso...");
+
+          try {
+            if (typeof window.NIVOAuthLoginHandler !== "function") {
+              throw new Error(
+                "No se pudo cargar assets/js/auth.js. Revisa que el archivo exista y que esté publicado correctamente."
+              );
+            }
+
+            await window.NIVOAuthLoginHandler({
+              email,
+              password,
+              remember,
+            });
+          } catch (error) {
+            setLoading(false);
+            setMessage(
+              "error",
+              error && error.message
+                ? error.message
+                : "No se pudo iniciar sesión. Revisa tus datos e intenta nuevamente."
+            );
+          }
+        });
+      }
+    })();
+  </script>
+</body>
+</html>

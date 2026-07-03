@@ -1,0 +1,1074 @@
+<!DOCTYPE html>
+<html lang="es-SV">
+<head>
+  <meta charset="UTF-8" />
+  <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+  <title>NIVO | Un mundo en movimiento</title>
+
+  <meta
+    name="description"
+    content="NIVO es una plataforma local de movilidad, delivery, comercios, paquetes y oportunidades en El Salvador. Viajes, pedidos, entregas y crecimiento local en una sola app."
+  />
+  <meta
+    name="keywords"
+    content="NIVO, movilidad, delivery, transporte, Ahuachapán, El Salvador, conductores, comercios, paquetes, mototaxi, qute, viajes, repartidores"
+  />
+  <meta name="author" content="NIVO" />
+  <meta name="theme-color" content="#05070A" />
+  <meta name="robots" content="index, follow" />
+  <meta name="format-detection" content="telephone=no" />
+
+  <meta property="og:title" content="NIVO | Un mundo en movimiento" />
+  <meta
+    property="og:description"
+    content="Viajes, delivery, paquetes, comercios y oportunidades para conductores en una sola plataforma local."
+  />
+  <meta property="og:type" content="website" />
+  <meta property="og:locale" content="es_SV" />
+  <meta property="og:site_name" content="NIVO" />
+  <meta property="og:image" content="assets/img/social/og-nivo-home.png" />
+  <meta property="og:image:alt" content="NIVO | Un mundo en movimiento" />
+
+  <meta name="twitter:card" content="summary_large_image" />
+  <meta name="twitter:title" content="NIVO | Un mundo en movimiento" />
+  <meta
+    name="twitter:description"
+    content="La plataforma local para mover personas, pedidos, paquetes y oportunidades."
+  />
+  <meta name="twitter:image" content="assets/img/social/twitter-nivo-home.png" />
+
+  <link rel="icon" href="assets/img/favicon/favicon.ico" sizes="any" />
+  <link rel="icon" type="image/png" sizes="16x16" href="assets/img/favicon/favicon-16x16.png" />
+  <link rel="icon" type="image/png" sizes="32x32" href="assets/img/favicon/favicon-32x32.png" />
+  <link rel="apple-touch-icon" href="assets/img/favicon/apple-touch-icon.png" />
+
+  <link rel="preload" as="image" href="assets/img/brand/nivo-logo-horizontal-white.png" />
+  <link rel="preload" as="image" href="assets/img/hero/hero-nivo-app.png" />
+  <link rel="preload" as="image" href="assets/img/hero/hero-bg-ahuachapan.png" />
+
+  <link rel="stylesheet" href="assets/css/styles.css" />
+  <script defer src="assets/js/main.js"></script>
+
+  <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "Organization",
+      "name": "NIVO",
+      "slogan": "Un mundo en movimiento",
+      "description": "Plataforma local de movilidad, delivery, comercios, paquetes y oportunidades en El Salvador.",
+      "areaServed": {
+        "@type": "Country",
+        "name": "El Salvador"
+      },
+      "logo": "assets/img/brand/nivo-logo-horizontal-white.png"
+    }
+  </script>
+</head>
+
+<body>
+  <noscript>
+    <div class="noscript-alert">
+      Para disfrutar la experiencia completa de NIVO Web, activa JavaScript en tu navegador.
+    </div>
+  </noscript>
+
+  <div class="page">
+    <div class="ambient-bg" aria-hidden="true"></div>
+    <div class="orb orb-one" aria-hidden="true"></div>
+    <div class="orb orb-two" aria-hidden="true"></div>
+    <div class="orb orb-three" aria-hidden="true"></div>
+
+    <header class="header" id="header">
+      <nav class="nav" aria-label="Navegación principal">
+        <a class="brand" href="#inicio" aria-label="Ir al inicio de NIVO">
+          <img
+            class="brand-logo"
+            src="assets/img/brand/nivo-logo-horizontal-white.png"
+            alt="NIVO"
+            width="240"
+            height="80"
+            decoding="async"
+          />
+        </a>
+
+        <div class="nav-links" aria-label="Enlaces principales">
+          <a href="#servicios">Servicios</a>
+          <a href="#usuarios">Usuarios</a>
+          <a href="#conductores">Conductores</a>
+          <a href="#comercios">Comercios</a>
+          <a href="#agentes">Agentes</a>
+          <a href="#seguridad">Seguridad</a>
+          <a href="#faq">FAQ</a>
+        </div>
+
+        <div class="nav-actions">
+          <div class="auth-actions" aria-label="Accesos de cuenta">
+            <a class="auth-link auth-login" href="login.html" aria-label="Iniciar sesión en NIVO">
+              Iniciar sesión
+            </a>
+
+            <a class="auth-link auth-register" href="register.html" aria-label="Crear cuenta en NIVO">
+              Registrarse
+              <span class="btn-arrow" aria-hidden="true">→</span>
+            </a>
+          </div>
+
+          <button
+            class="menu-btn"
+            id="menuBtn"
+            type="button"
+            aria-label="Abrir menú"
+            aria-controls="mobilePanel"
+            aria-expanded="false"
+          >
+            <span></span>
+            <span></span>
+            <span></span>
+          </button>
+        </div>
+      </nav>
+    </header>
+
+    <div class="mobile-panel" id="mobilePanel" aria-hidden="true">
+      <div class="mobile-links">
+        <a href="#servicios">Servicios</a>
+        <a href="#usuarios">Usuarios</a>
+        <a href="#conductores">Conductores</a>
+        <a href="#comercios">Comercios</a>
+        <a href="#agentes">Agentes</a>
+        <a href="#seguridad">Seguridad</a>
+        <a href="#zonas">Zonas</a>
+        <a href="#faq">Preguntas frecuentes</a>
+
+        <div class="mobile-auth" aria-label="Accesos de cuenta en móvil">
+          <a class="mobile-login" href="login.html">Iniciar sesión</a>
+          <a class="mobile-register" href="register.html">Registrarse</a>
+        </div>
+      </div>
+    </div>
+
+    <main>
+      <section class="hero" id="inicio">
+        <picture class="hero-bg-media" aria-hidden="true">
+          <img
+            src="assets/img/hero/hero-bg-ahuachapan.png"
+            alt=""
+            width="1920"
+            height="1080"
+            fetchpriority="high"
+            decoding="async"
+          />
+        </picture>
+
+        <img
+          class="hero-glow-img"
+          src="assets/img/hero/hero-gradient-glow.png"
+          alt=""
+          width="1600"
+          height="1200"
+          aria-hidden="true"
+          decoding="async"
+        />
+
+        <div class="container">
+          <div class="hero-grid">
+            <div class="hero-content reveal">
+              <div class="kicker">
+                <span class="kicker-icon" aria-hidden="true"></span>
+                Plataforma local de movilidad, delivery y comercio
+              </div>
+
+              <h1 class="hero-title">
+                NIVO
+                <span>Un mundo en movimiento.</span>
+              </h1>
+
+              <p class="hero-copy">
+                Una plataforma creada para mover personas, pedidos, paquetes y oportunidades desde lo local.
+                NIVO conecta usuarios, conductores, comercios y agentes en una experiencia moderna, rápida y confiable.
+              </p>
+
+              <div class="hero-actions">
+                <a class="btn btn-primary" href="#usuarios">
+                  Quiero usar NIVO
+                  <span class="btn-arrow" aria-hidden="true">→</span>
+                </a>
+
+                <a class="btn btn-secondary" href="#conductores">
+                  Soy conductor
+                </a>
+
+                <a class="btn btn-ghost" href="#comercios">
+                  Tengo un comercio
+                </a>
+              </div>
+
+              <div class="hero-mini" aria-label="Datos destacados de NIVO">
+                <div class="mini-proof">
+                  <span class="proof-dot" aria-hidden="true"></span>
+                  Piloto inicial en Ahuachapán
+                </div>
+
+                <div class="mini-proof">
+                  <span class="proof-dot" aria-hidden="true"></span>
+                  Conductores verificados
+                </div>
+
+                <div class="mini-proof">
+                  <span class="proof-dot" aria-hidden="true"></span>
+                  Operación por zonas
+                </div>
+              </div>
+
+              <div class="metrics-bar" aria-label="Resumen de NIVO">
+                <div class="metric">
+                  <strong>4 servicios</strong>
+                  <span>Viajes, delivery, paquetes y escolar.</span>
+                </div>
+
+                <div class="metric">
+                  <strong>1 ecosistema</strong>
+                  <span>Usuario, conductor, comercio y agente.</span>
+                </div>
+
+                <div class="metric">
+                  <strong>Local first</strong>
+                  <span>Diseñado para la realidad de cada zona.</span>
+                </div>
+
+                <div class="metric">
+                  <strong>Control seguro</strong>
+                  <span>Revisión, soporte y operación administrativa.</span>
+                </div>
+              </div>
+            </div>
+
+            <div class="hero-visual reveal">
+              <div class="hero-device-shell">
+                <picture>
+                  <source
+                    srcset="assets/img/hero/hero-nivo-app-mobile.png"
+                    media="(max-width: 760px)"
+                  />
+                  <img
+                    class="hero-app-img"
+                    src="assets/img/hero/hero-nivo-app.png"
+                    alt="Vista de la app NIVO en un teléfono"
+                    width="1200"
+                    height="1400"
+                    fetchpriority="high"
+                    decoding="async"
+                  />
+                </picture>
+
+                <div class="float-card left">
+                  <strong>Conductores verificados</strong>
+                  <span>Documentos, vehículo y perfil revisados antes de operar.</span>
+                </div>
+
+                <div class="float-card right">
+                  <strong>Comercios conectados</strong>
+                  <span>Pedidos, chats y entregas organizadas desde NIVO.</span>
+                </div>
+
+                <div class="float-card bottom">
+                  <strong>Varias oportunidades</strong>
+                  <span>Viajes, delivery, paquetes, recargas y crecimiento local.</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="section services-section" id="servicios">
+        <div class="container">
+          <div class="section-head reveal">
+            <div class="section-tag">Servicios NIVO</div>
+            <h2>Todo lo que se mueve en tu ciudad, desde una sola plataforma.</h2>
+            <p>
+              NIVO no es solo una app de transporte. Es una red local para conectar necesidades reales:
+              moverse, pedir, entregar, vender y generar ingresos.
+            </p>
+          </div>
+
+          <div class="services-grid">
+            <article class="service-card reveal" aria-label="Servicio de viajes NIVO">
+              <h3>Viajes</h3>
+              <p>
+                Solicitudes de transporte dentro de zonas activas con opciones como vehículo, moto,
+                mototaxi o qute según disponibilidad local.
+              </p>
+              <span class="chip">Vehículo • Moto • Mototaxi • Qute</span>
+            </article>
+
+            <article class="service-card reveal" aria-label="Servicio de delivery NIVO">
+              <h3>Delivery</h3>
+              <p>
+                Pedidos desde comercios locales con confirmación, preparación, asignación de repartidor
+                y seguimiento del estado.
+              </p>
+              <span class="chip">Pedidos • Preparación • Entrega</span>
+            </article>
+
+            <article class="service-card reveal" aria-label="Servicio de paquetes NIVO">
+              <h3>Paquetes</h3>
+              <p>
+                Entregas urbanas para artículos, compras, documentos o encargos, con comprobantes
+                y trazabilidad operativa.
+              </p>
+              <span class="chip">Documentos • Compras • Encargos</span>
+            </article>
+
+            <article class="service-card reveal" aria-label="Servicio escolar NIVO">
+              <h3>Escolar</h3>
+              <p>
+                Servicio proyectado para movilidad escolar controlada, con enfoque en seguridad,
+                seguimiento y confianza familiar.
+              </p>
+              <span class="chip">Seguridad • Seguimiento • Confianza</span>
+            </article>
+          </div>
+        </div>
+      </section>
+
+      <section class="section audience-section" id="usuarios">
+        <div class="container">
+          <div class="split">
+            <div class="split-copy reveal">
+              <div class="section-tag">Para usuarios</div>
+              <h2>Pide viajes, comida o entregas sin complicarte.</h2>
+              <p>
+                NIVO está diseñado para resolver necesidades diarias desde una sola app: moverte por la ciudad,
+                pedir a comercios locales, enviar paquetes y recibir notificaciones claras durante todo el proceso.
+              </p>
+
+              <ul class="feature-list">
+                <li>
+                  <span class="check">✓</span>
+                  <span>Selecciona el servicio, confirma tu ubicación y recibe opciones disponibles según tu zona.</span>
+                </li>
+                <li>
+                  <span class="check">✓</span>
+                  <span>Conecta con comercios locales para pedir, confirmar y recibir tus pedidos.</span>
+                </li>
+                <li>
+                  <span class="check">✓</span>
+                  <span>Consulta estados, seguimiento, soporte y notificaciones dentro de la plataforma.</span>
+                </li>
+              </ul>
+
+              <div class="hero-actions">
+                <a class="btn btn-primary" href="register.html">
+                  Crear cuenta
+                  <span class="btn-arrow" aria-hidden="true">→</span>
+                </a>
+
+                <a class="btn btn-secondary" href="#contacto">
+                  Quiero recibir novedades
+                </a>
+              </div>
+            </div>
+
+            <div class="visual-card visual-card-users reveal">
+              <img
+                class="section-main-img"
+                src="assets/img/sections/section-users.png"
+                alt="Persona usando NIVO desde su teléfono"
+                width="1200"
+                height="900"
+                loading="lazy"
+                decoding="async"
+              />
+
+              <img
+                class="mockup mockup-user-home"
+                src="assets/img/mockups/mockup-nivo-user-home.png"
+                alt="Pantalla principal de NIVO User"
+                width="1080"
+                height="1920"
+                loading="lazy"
+                decoding="async"
+              />
+
+              <img
+                class="mockup mockup-user-ride"
+                src="assets/img/mockups/mockup-nivo-user-ride.png"
+                alt="Pantalla de solicitud de viaje en NIVO"
+                width="1080"
+                height="1920"
+                loading="lazy"
+                decoding="async"
+              />
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="section driver-section" id="conductores">
+        <div class="container">
+          <div class="split reverse">
+            <div class="visual-card visual-card-driver reveal">
+              <img
+                class="section-main-img"
+                src="assets/img/sections/section-drivers.png"
+                alt="Conductor NIVO preparado para operar"
+                width="1200"
+                height="900"
+                loading="lazy"
+                decoding="async"
+              />
+
+              <img
+                class="mockup mockup-driver-home"
+                src="assets/img/mockups/mockup-nivo-driver-home.png"
+                alt="Pantalla principal de NIVO Driver"
+                width="1080"
+                height="1920"
+                loading="lazy"
+                decoding="async"
+              />
+
+              <img
+                class="mockup mockup-driver-offer"
+                src="assets/img/mockups/mockup-nivo-driver-offer.png"
+                alt="Oferta de servicio para conductor NIVO"
+                width="1080"
+                height="1920"
+                loading="lazy"
+                decoding="async"
+              />
+            </div>
+
+            <div class="split-copy reveal">
+              <div class="section-tag">Para conductores</div>
+              <h2>Convierte tu vehículo en una fuente de oportunidades.</h2>
+              <p>
+                NIVO Driver permitirá a conductores operar según su vehículo, zona y servicios habilitados.
+                La cuenta pasa por revisión documental antes de recibir tareas.
+              </p>
+
+              <ul class="feature-list">
+                <li>
+                  <span class="check">✓</span>
+                  <span>Registro por zona, tipo de vehículo y servicios que el conductor desea realizar.</span>
+                </li>
+                <li>
+                  <span class="check">✓</span>
+                  <span>Revisión de documentos, fotos del vehículo y perfil antes de operar.</span>
+                </li>
+                <li>
+                  <span class="check">✓</span>
+                  <span>Viajes, delivery y paquetes desde una misma plataforma, según permisos activos.</span>
+                </li>
+              </ul>
+
+              <div class="vehicle-types">
+                <div class="vehicle-pill">
+                  <img src="assets/img/icons/icon-driver.png" alt="" width="512" height="512" loading="lazy" />
+                  <span>Vehículo</span>
+                </div>
+
+                <div class="vehicle-pill">
+                  <img src="assets/img/icons/icon-delivery.png" alt="" width="512" height="512" loading="lazy" />
+                  <span>Moto</span>
+                </div>
+
+                <div class="vehicle-pill">
+                  <img src="assets/img/icons/icon-ride.png" alt="" width="512" height="512" loading="lazy" />
+                  <span>Mototaxi</span>
+                </div>
+
+                <div class="vehicle-pill">
+                  <img src="assets/img/icons/icon-zone.png" alt="" width="512" height="512" loading="lazy" />
+                  <span>Qute</span>
+                </div>
+              </div>
+
+              <div class="hero-actions">
+                <a class="btn btn-primary" href="register.html">
+                  Quiero conducir con NIVO
+                  <span class="btn-arrow" aria-hidden="true">→</span>
+                </a>
+
+                <a class="btn btn-secondary" href="login.html">
+                  Ya tengo cuenta
+                </a>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="section commerce-section" id="comercios">
+        <div class="container">
+          <div class="split">
+            <div class="split-copy reveal">
+              <div class="section-tag">Para comercios</div>
+              <h2>Tu negocio puede vender más sin crear su propia app.</h2>
+              <p>
+                NIVO Commerce será la herramienta para que negocios locales reciban pedidos, organicen conversaciones,
+                preparen órdenes y conecten con repartidores disponibles.
+              </p>
+
+              <ul class="feature-list">
+                <li>
+                  <span class="check">✓</span>
+                  <span>Perfil de comercio dentro de NIVO para ser descubierto por usuarios cercanos.</span>
+                </li>
+
+                <li>
+                  <span class="check">✓</span>
+                  <span>Chats, borradores de pedido, confirmación del usuario y estados de preparación.</span>
+                </li>
+
+                <li>
+                  <span class="check">✓</span>
+                  <span>Conexión con repartidores para llevar pedidos hasta el cliente final.</span>
+                </li>
+              </ul>
+
+              <div class="hero-actions">
+                <a class="btn btn-primary" href="register.html">
+                  Registrar mi comercio
+                  <span class="btn-arrow" aria-hidden="true">→</span>
+                </a>
+
+                <a class="btn btn-secondary" href="#contacto">
+                  Solicitar información
+                </a>
+              </div>
+            </div>
+
+            <div class="visual-card visual-card-commerce reveal">
+              <img
+                class="section-main-img"
+                src="assets/img/sections/section-commerce.png"
+                alt="Comercio local usando NIVO Commerce"
+                width="1200"
+                height="900"
+                loading="lazy"
+                decoding="async"
+              />
+
+              <img
+                class="mockup mockup-commerce-orders"
+                src="assets/img/mockups/mockup-nivo-commerce-orders.png"
+                alt="Panel de pedidos de NIVO Commerce"
+                width="1440"
+                height="1100"
+                loading="lazy"
+                decoding="async"
+              />
+
+              <img
+                class="mockup mockup-commerce-chat"
+                src="assets/img/mockups/mockup-nivo-commerce-chat.png"
+                alt="Chat de comercio en NIVO Commerce"
+                width="1440"
+                height="1100"
+                loading="lazy"
+                decoding="async"
+              />
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="section agent-section" id="agentes">
+        <div class="container">
+          <div class="split reverse">
+            <div class="visual-card visual-card-agent reveal">
+              <img
+                class="section-main-img"
+                src="assets/img/sections/section-agent.png"
+                alt="Agente local de recargas NIVO"
+                width="1200"
+                height="900"
+                loading="lazy"
+                decoding="async"
+              />
+
+              <img
+                class="mockup mockup-agent-topups"
+                src="assets/img/mockups/mockup-nivo-agent-topups.png"
+                alt="Pantalla de recargas de NIVO Agent"
+                width="1080"
+                height="1920"
+                loading="lazy"
+                decoding="async"
+              />
+            </div>
+
+            <div class="split-copy reveal">
+              <div class="section-tag">NIVO Agent</div>
+              <h2>Una red local para recargas y soporte operativo.</h2>
+              <p>
+                NIVO también proyecta agentes locales para apoyar recargas de conductores, atención operativa
+                y crecimiento por zonas.
+              </p>
+
+              <ul class="feature-list">
+                <li>
+                  <span class="check">✓</span>
+                  <span>Agentes autorizados para procesar recargas de conductores.</span>
+                </li>
+
+                <li>
+                  <span class="check">✓</span>
+                  <span>Historial de ventas, límites operativos y control administrativo.</span>
+                </li>
+
+                <li>
+                  <span class="check">✓</span>
+                  <span>Modelo pensado para crecer en barrios, municipios y comercios aliados.</span>
+                </li>
+              </ul>
+
+              <div class="hero-actions">
+                <a class="btn btn-primary" href="register.html">
+                  Quiero ser agente
+                  <span class="btn-arrow" aria-hidden="true">→</span>
+                </a>
+
+                <a class="btn btn-secondary" href="#contacto">
+                  Hablar con NIVO
+                </a>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="section security-section" id="seguridad">
+        <div class="container">
+          <div class="section-head reveal">
+            <div class="section-tag">Seguridad y confianza</div>
+            <h2>La confianza no se improvisa. Se construye con control.</h2>
+            <p>
+              NIVO está pensado para crecer con revisión documental, reportes, soporte, notificaciones
+              y control administrativo por cada operación sensible.
+            </p>
+          </div>
+
+          <div class="security-layout">
+            <div class="security-image-card reveal">
+              <img
+                src="assets/img/sections/section-security.png"
+                alt="Seguridad, revisión documental y soporte en NIVO"
+                width="1200"
+                height="900"
+                loading="lazy"
+                decoding="async"
+              />
+            </div>
+
+            <div class="security-grid">
+              <article class="security-card reveal">
+                <img
+                  src="assets/img/icons/icon-security.png"
+                  alt=""
+                  width="512"
+                  height="512"
+                  loading="lazy"
+                  decoding="async"
+                />
+                <span>01</span>
+                <h3>Revisión documental</h3>
+                <p>
+                  Conductores, vehículos, comercios y agentes deben pasar por procesos de revisión antes
+                  de operar plenamente.
+                </p>
+              </article>
+
+              <article class="security-card reveal">
+                <img
+                  src="assets/img/icons/icon-zone.png"
+                  alt=""
+                  width="512"
+                  height="512"
+                  loading="lazy"
+                  decoding="async"
+                />
+                <span>02</span>
+                <h3>Operación por zonas</h3>
+                <p>
+                  Cada municipio puede activar o desactivar servicios, tipos de transporte, tarifas y reglas
+                  según su realidad.
+                </p>
+              </article>
+
+              <article class="security-card reveal">
+                <img
+                  src="assets/img/icons/icon-support.png"
+                  alt=""
+                  width="512"
+                  height="512"
+                  loading="lazy"
+                  decoding="async"
+                />
+                <span>03</span>
+                <h3>Soporte y reportes</h3>
+                <p>
+                  La plataforma contempla tickets, reportes de seguridad, historial, notificaciones y trazabilidad.
+                </p>
+              </article>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="section zones-section" id="zonas">
+        <div class="container">
+          <div class="zone-card reveal">
+            <div class="zone-copy">
+              <div class="section-tag">Inicio local</div>
+              <h2>NIVO inicia en Ahuachapán.</h2>
+              <p>
+                El lanzamiento se enfoca en construir confianza desde una zona piloto, entendiendo rutas,
+                comercios, conductores, usuarios y necesidades reales antes de escalar.
+              </p>
+
+              <div class="city-badges">
+                <span>Ahuachapán</span>
+                <span>El Salvador</span>
+                <span>Movilidad local</span>
+                <span>Delivery urbano</span>
+              </div>
+            </div>
+
+            <div class="zone-visual">
+              <img
+                src="assets/img/sections/section-ahuachapan.png"
+                alt="Zona inicial de NIVO en Ahuachapán"
+                width="1600"
+                height="1000"
+                loading="lazy"
+                decoding="async"
+              />
+
+              <div class="map-pin">
+                <img
+                  src="assets/img/brand/nivo-logo-mark.png"
+                  alt=""
+                  width="1024"
+                  height="1024"
+                  loading="lazy"
+                  decoding="async"
+                />
+                <span>Ahuachapán</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="section dashboard-preview-section" id="dashboard">
+        <div class="container">
+          <div class="section-head reveal">
+            <div class="section-tag">Operación NIVO</div>
+            <h2>Un ecosistema serio necesita administración seria.</h2>
+            <p>
+              NIVO tendrá un panel administrativo para revisión documental, permisos, operación por zonas,
+              auditoría y control de procesos sensibles según el rol autorizado de cada cuenta.
+            </p>
+          </div>
+
+          <div class="dashboard-preview-card reveal">
+            <img
+              src="assets/img/mockups/mockup-nivo-admin-dashboard.png"
+              alt="Vista conceptual del Dashboard Administrativo NIVO"
+              width="1600"
+              height="1000"
+              loading="lazy"
+              decoding="async"
+            />
+
+            <div class="dashboard-preview-content">
+              <img
+                src="assets/img/icons/icon-wallet.png"
+                alt=""
+                width="512"
+                height="512"
+                loading="lazy"
+                decoding="async"
+              />
+              <h3>Dashboard NIVO</h3>
+              <p>
+                Conductores, comercios, agentes, zonas, tarifas, wallets, recargas, pedidos, soporte,
+                notificaciones y auditoría desde una administración centralizada para cuentas autorizadas.
+              </p>
+
+              <div class="hero-actions">
+                <a class="btn btn-primary" href="register.html">
+                  Crear cuenta
+                  <span class="btn-arrow" aria-hidden="true">→</span>
+                </a>
+
+                <a class="btn btn-secondary" href="login.html">
+                  Iniciar sesión
+                </a>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="section faq-section" id="faq">
+        <div class="container">
+          <div class="section-head reveal">
+            <div class="section-tag">Preguntas frecuentes</div>
+            <h2>Lo esencial antes del lanzamiento.</h2>
+            <p>
+              Respuestas simples para usuarios, conductores, comercios, agentes y aliados locales.
+            </p>
+          </div>
+
+          <div class="faq-wrap">
+            <div class="faq-item reveal active">
+              <button class="faq-question" type="button" aria-expanded="true">
+                <span>¿Qué es NIVO?</span>
+                <span class="faq-icon">+</span>
+              </button>
+              <div class="faq-answer">
+                <p>
+                  NIVO es una plataforma local que conecta movilidad, delivery, paquetes, comercios,
+                  conductores y agentes en un solo ecosistema digital.
+                </p>
+              </div>
+            </div>
+
+            <div class="faq-item reveal">
+              <button class="faq-question" type="button" aria-expanded="false">
+                <span>¿Dónde iniciará NIVO?</span>
+                <span class="faq-icon">+</span>
+              </button>
+              <div class="faq-answer">
+                <p>
+                  El piloto inicial está enfocado en Ahuachapán, El Salvador, para validar operación,
+                  usuarios, conductores, comercios y servicios por zona.
+                </p>
+              </div>
+            </div>
+
+            <div class="faq-item reveal">
+              <button class="faq-question" type="button" aria-expanded="false">
+                <span>¿Cómo podrá trabajar un conductor?</span>
+                <span class="faq-icon">+</span>
+              </button>
+              <div class="faq-answer">
+                <p>
+                  El conductor se registrará, elegirá zona, vehículo y servicios, subirá documentos y
+                  esperará aprobación antes de recibir viajes, delivery o paquetes.
+                </p>
+              </div>
+            </div>
+
+            <div class="faq-item reveal">
+              <button class="faq-question" type="button" aria-expanded="false">
+                <span>¿Los comercios podrán vender dentro de NIVO?</span>
+                <span class="faq-icon">+</span>
+              </button>
+              <div class="faq-answer">
+                <p>
+                  Sí. NIVO Commerce está pensado para que negocios locales reciban pedidos, organicen
+                  chats, preparen órdenes y conecten con repartidores.
+                </p>
+              </div>
+            </div>
+
+            <div class="faq-item reveal">
+              <button class="faq-question" type="button" aria-expanded="false">
+                <span>¿Cómo funcionará el inicio de sesión?</span>
+                <span class="faq-icon">+</span>
+              </button>
+              <div class="faq-answer">
+                <p>
+                  El login permitirá acceder con una cuenta NIVO. Según el rol autorizado de cada usuario,
+                  la plataforma podrá redirigir a la experiencia correspondiente, incluyendo administración
+                  cuando la cuenta tenga permisos internos.
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="section contact-section" id="contacto">
+        <div class="container">
+          <div class="contact-grid">
+            <div class="contact-copy reveal">
+              <div class="section-tag">Próximamente</div>
+              <h2>Prepárate para moverte con NIVO.</h2>
+              <p>
+                Estamos construyendo una plataforma para que usuarios, conductores, comercios y agentes
+                puedan crecer desde lo local.
+              </p>
+
+              <div class="contact-options">
+                <div class="contact-option">
+                  <img src="assets/img/icons/icon-driver.png" alt="" width="512" height="512" loading="lazy" />
+                  <span>Conductores</span>
+                </div>
+
+                <div class="contact-option">
+                  <img src="assets/img/icons/icon-commerce.png" alt="" width="512" height="512" loading="lazy" />
+                  <span>Comercios</span>
+                </div>
+
+                <div class="contact-option">
+                  <img src="assets/img/icons/icon-agent.png" alt="" width="512" height="512" loading="lazy" />
+                  <span>Agentes</span>
+                </div>
+              </div>
+            </div>
+
+            <form
+              class="contact-form reveal"
+              name="nivo-interest"
+              method="POST"
+              data-netlify="true"
+              netlify-honeypot="bot-field"
+            >
+              <input type="hidden" name="form-name" value="nivo-interest" />
+
+              <p class="hidden-field">
+                <label>
+                  No llenar:
+                  <input name="bot-field" />
+                </label>
+              </p>
+
+              <div class="form-head">
+                <h3>Quiero información de NIVO</h3>
+                <p>Déjanos tus datos para contactarte cuando abramos registros.</p>
+              </div>
+
+              <div class="form-grid">
+                <label>
+                  Nombre completo
+                  <input
+                    type="text"
+                    name="fullName"
+                    placeholder="Tu nombre"
+                    autocomplete="name"
+                    required
+                  />
+                </label>
+
+                <label>
+                  Teléfono / WhatsApp
+                  <input
+                    type="tel"
+                    name="phone"
+                    placeholder="Ej. 7000-0000"
+                    autocomplete="tel"
+                    required
+                  />
+                </label>
+
+                <label>
+                  Tipo de interés
+                  <select name="interestType" required>
+                    <option value="">Selecciona una opción</option>
+                    <option value="usuario">Quiero usar NIVO</option>
+                    <option value="conductor">Quiero ser conductor</option>
+                    <option value="comercio">Tengo un comercio</option>
+                    <option value="agente">Quiero ser agente</option>
+                    <option value="alianza">Quiero una alianza</option>
+                  </select>
+                </label>
+
+                <label>
+                  Municipio
+                  <input
+                    type="text"
+                    name="municipality"
+                    placeholder="Ej. Ahuachapán"
+                    autocomplete="address-level2"
+                    required
+                  />
+                </label>
+              </div>
+
+              <label>
+                Mensaje
+                <textarea
+                  name="message"
+                  rows="4"
+                  placeholder="Cuéntanos cómo quieres participar en NIVO"
+                ></textarea>
+              </label>
+
+              <button class="btn btn-primary form-submit" type="submit">
+                Enviar información
+                <span class="btn-arrow" aria-hidden="true">→</span>
+              </button>
+            </form>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <footer class="footer">
+      <div class="container">
+        <div class="footer-grid">
+          <div>
+            <a class="footer-brand" href="#inicio" aria-label="Ir al inicio de NIVO">
+              <img
+                src="assets/img/brand/nivo-logo-horizontal-white.png"
+                alt="NIVO"
+                width="240"
+                height="80"
+                loading="lazy"
+                decoding="async"
+              />
+            </a>
+
+            <p>
+              Plataforma local de movilidad, delivery, comercios, paquetes y oportunidades para El Salvador.
+            </p>
+          </div>
+
+          <div class="footer-col">
+            <h4>Plataforma</h4>
+            <a href="#servicios">Servicios</a>
+            <a href="#usuarios">Usuarios</a>
+            <a href="#conductores">Conductores</a>
+            <a href="#comercios">Comercios</a>
+          </div>
+
+          <div class="footer-col">
+            <h4>Operación</h4>
+            <a href="#agentes">NIVO Agent</a>
+            <a href="#seguridad">Seguridad</a>
+            <a href="#zonas">Zonas</a>
+            <a href="#faq">Preguntas frecuentes</a>
+          </div>
+
+          <div class="footer-col">
+            <h4>Accesos</h4>
+            <a href="login.html">Iniciar sesión</a>
+            <a href="register.html">Registrarse</a>
+            <a href="#contacto">Contacto</a>
+            <a href="privacy.html">Privacidad</a>
+            <a href="terms.html">Términos</a>
+          </div>
+        </div>
+
+        <div class="footer-bottom">
+          <span>© <span id="year"></span> NIVO. Todos los derechos reservados.</span>
+
+          <div class="socials" aria-label="Redes sociales NIVO">
+            <a href="#" aria-label="TikTok NIVO">T</a>
+            <a href="#" aria-label="Facebook NIVO">F</a>
+            <a href="#" aria-label="Instagram NIVO">I</a>
+          </div>
+        </div>
+      </div>
+    </footer>
+  </div>
+</body>
+</html>
