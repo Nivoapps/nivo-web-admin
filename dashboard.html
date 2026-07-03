@@ -9,7 +9,7 @@
 
   <meta
     name="description"
-    content="Dashboard administrativo de NIVO para operación, revisión de conductores, comercios, usuarios, agentes, zonas, métricas y seguridad."
+    content="Dashboard administrativo de NIVO para operación, revisión de conductores, comercios, usuarios, agentes, zonas, tarifas, métricas, finanzas, notificaciones y seguridad."
   />
   <meta name="robots" content="noindex, nofollow" />
   <meta name="theme-color" content="#05070A" />
@@ -63,8 +63,9 @@
       <p class="eyebrow danger">Acceso restringido</p>
       <h1>No tienes permisos para entrar al dashboard</h1>
       <p>
-        Esta área es exclusiva para cuentas administrativas activas. Si crees que
-        esto es un error, solicita que un owner o super admin revise tu cuenta.
+        Esta área es exclusiva para cuentas administrativas activas creadas en
+        admin_profiles. Si crees que esto es un error, solicita que un owner o
+        super admin revise tu cuenta.
       </p>
 
       <div class="access-denied-actions">
@@ -324,7 +325,7 @@
               <h2 id="overviewTitle">Resumen de operación</h2>
               <p>
                 Métricas principales de usuarios, conductores, comercios, agentes,
-                zonas activas y actividad operativa.
+                zonas activas, servicios, finanzas y actividad administrativa.
               </p>
             </div>
 
@@ -348,31 +349,31 @@
             <article class="metric-card">
               <span class="metric-label">Usuarios registrados</span>
               <strong id="metricTotalUsers">0</strong>
-              <small id="metricUsersTrend">Sin datos todavía</small>
+              <small id="metricUsersTrend">Colección users</small>
             </article>
 
             <article class="metric-card">
               <span class="metric-label">Usuarios activos</span>
               <strong id="metricActiveUsers">0</strong>
-              <small>status: active</small>
+              <small>users.status: active</small>
             </article>
 
             <article class="metric-card primary">
               <span class="metric-label">Conductores registrados</span>
               <strong id="metricTotalDrivers">0</strong>
-              <small>Todos los perfiles driver</small>
+              <small>driver_profiles</small>
             </article>
 
             <article class="metric-card">
-              <span class="metric-label">Conductores activos</span>
+              <span class="metric-label">Conductores aprobados</span>
               <strong id="metricActiveDrivers">0</strong>
-              <small>Aprobados para operar</small>
+              <small>driver_profiles.status: approved</small>
             </article>
 
             <article class="metric-card warning">
               <span class="metric-label">Conductores por revisar</span>
               <strong id="metricPendingDrivers">0</strong>
-              <small>pending_review / correction</small>
+              <small>pending_documents / pending_review / correction_required</small>
             </article>
 
             <article class="metric-card">
@@ -384,7 +385,7 @@
             <article class="metric-card">
               <span class="metric-label">Comercios activos</span>
               <strong id="metricActiveCommerce">0</strong>
-              <small>Visibles y operativos</small>
+              <small>commerce_users active + commerce_profiles verified</small>
             </article>
 
             <article class="metric-card">
@@ -396,25 +397,25 @@
             <article class="metric-card">
               <span class="metric-label">Zonas activas</span>
               <strong id="metricServiceZones">0</strong>
-              <small>Municipios operativos</small>
+              <small>service_zones.active</small>
             </article>
 
             <article class="metric-card">
               <span class="metric-label">Viajes</span>
               <strong id="metricRideRequests">0</strong>
-              <small>Solicitudes registradas</small>
+              <small>ride_requests</small>
             </article>
 
             <article class="metric-card">
               <span class="metric-label">Delivery orders</span>
               <strong id="metricDeliveryOrders">0</strong>
-              <small>Órdenes registradas</small>
+              <small>delivery_orders</small>
             </article>
 
             <article class="metric-card">
               <span class="metric-label">Volumen wallet</span>
               <strong id="metricWalletVolume">$0.00</strong>
-              <small>Recargas / movimientos</small>
+              <small>driver_wallet_transactions</small>
             </article>
           </div>
 
@@ -508,7 +509,7 @@
               <h2 id="usersTitle">Usuarios registrados</h2>
               <p>
                 Control de clientes, cuentas base, estados, actividad y conversión
-                autorizada de usuarios en administradores.
+                autorizada de usuarios en administradores mediante admin_profiles.
               </p>
             </div>
 
@@ -603,8 +604,8 @@
               <p class="eyebrow">Operación logística</p>
               <h2 id="driversTitle">Conductores y repartidores</h2>
               <p>
-                Consulta de conductores registrados, activos, online, bloqueados,
-                tipo de vehículo y servicios habilitados.
+                Consulta de conductores registrados, aprobados, online, bloqueados,
+                tipo de vehículo, wallet, vehículo principal y servicios habilitados.
               </p>
             </div>
 
@@ -620,7 +621,7 @@
               Todos <strong id="driversCountAll">0</strong>
             </button>
             <button class="summary-chip" type="button" data-driver-filter="active">
-              Activos <strong id="driversCountActive">0</strong>
+              Aprobados <strong id="driversCountActive">0</strong>
             </button>
             <button class="summary-chip" type="button" data-driver-filter="online">
               Online <strong id="driversCountOnline">0</strong>
@@ -718,7 +719,7 @@
               <h2 id="driverReviewTitle">Aprobación de conductores</h2>
               <p>
                 Revisión de selfie, DUI, licencia, tarjeta de circulación,
-                vehículo, servicios seleccionados y decisión administrativa.
+                vehículo, servicios seleccionados, wallet inicial y decisión administrativa.
               </p>
             </div>
 
@@ -807,8 +808,8 @@
               <p class="eyebrow">NIVO Commerce</p>
               <h2 id="commerceTitle">Comercios registrados</h2>
               <p>
-                Administración de comercios, visibilidad, catálogo, planes,
-                comisiones, órdenes y estado operativo.
+                Administración de comercios, owner, visibilidad, catálogo, planes,
+                órdenes y estado operativo usando commerce_users y commerce_profiles.
               </p>
             </div>
 
@@ -831,9 +832,9 @@
                 <option value="all">Todos</option>
                 <option value="active">Activos</option>
                 <option value="pending_profile">Perfil pendiente</option>
-                <option value="pending_review">En revisión</option>
+                <option value="pending_verification">En verificación</option>
                 <option value="correction_required">Corrección</option>
-                <option value="blocked">Bloqueados</option>
+                <option value="suspended">Suspendidos</option>
               </select>
             </label>
 
@@ -903,7 +904,7 @@
               <p class="eyebrow">Función principal</p>
               <h2 id="commerceReviewTitle">Aprobación de comercios</h2>
               <p>
-                Revisión de comercios, datos del negocio, categoría, zona,
+                Revisión de comercios, owner, datos del negocio, categoría, zona,
                 visibilidad, permiso para recibir órdenes y estado comercial.
               </p>
             </div>
@@ -963,7 +964,7 @@
               <h2 id="agentsTitle">Agentes NIVO</h2>
               <p>
                 Control de agentes autorizados para recargas, límites, estados,
-                comisiones y actividad.
+                comisiones y actividad. Módulo preparado para NIVO Agent.
               </p>
             </div>
 
@@ -1022,8 +1023,8 @@
               <p class="eyebrow">Expansión territorial</p>
               <h2 id="zonesTitle">Zonas operativas</h2>
               <p>
-                Configuración de país, departamentos, municipios, servicios activos,
-                tipos de transporte permitidos y tarifas por zona.
+                Configuración de país, departamentos, municipios, servicios activos
+                y tipos de transporte permitidos. Las tarifas se guardan en fare_configs.
               </p>
             </div>
 
@@ -1036,7 +1037,7 @@
 
           <div class="table-card">
             <div class="table-header">
-              <h3>Service zones</h3>
+              <h3>service_zones</h3>
               <span id="zonesTableCount">0 registros</span>
             </div>
 
@@ -1078,11 +1079,11 @@
         >
           <div class="section-heading">
             <div>
-              <p class="eyebrow">Catálogo global</p>
+              <p class="eyebrow">Catálogo derivado</p>
               <h2 id="rideTypesTitle">Categorías de transporte</h2>
               <p>
-                Alta, baja y edición de carro, moto, mototaxi, qute y nuevos tipos
-                de movilidad disponibles por zona.
+                Vista administrativa de carro, moto, mototaxi y qute derivada desde
+                fare_configs.transportConfigs y service_zones.enabledRideTypes.
               </p>
             </div>
 
@@ -1095,7 +1096,7 @@
 
           <div class="table-card">
             <div class="table-header">
-              <h3>Ride types</h3>
+              <h3>transportConfigs por zona</h3>
               <span id="rideTypesTableCount">0 registros</span>
             </div>
 
@@ -1115,7 +1116,7 @@
                 <tbody id="rideTypesTableBody">
                   <tr>
                     <td colspan="7">
-                      <div class="empty-state compact">Cargando categorías...</div>
+                      <div class="empty-state compact">Cargando categorías desde fare_configs...</div>
                     </td>
                   </tr>
                 </tbody>
@@ -1141,7 +1142,7 @@
               <h2 id="pricingTitle">Tarifas y comisiones</h2>
               <p>
                 Control por zona de tarifa base, tarifa mínima, precio por km,
-                precio por minuto, comisión NIVO, delivery y promociones.
+                precio por minuto, comisión NIVO, delivery y reglas operativas.
               </p>
             </div>
 
@@ -1154,7 +1155,7 @@
 
           <div id="pricingConfigGrid" class="config-grid">
             <div class="empty-state">
-              Las tarifas se cargarán desde service_zones y transportConfigs.
+              Las tarifas se cargarán desde fare_configs/{serviceZoneId}.
             </div>
           </div>
         </section>
@@ -1176,7 +1177,7 @@
               <h2 id="deliveryTitle">Delivery / Órdenes</h2>
               <p>
                 Control de órdenes, estados, comercios, usuarios, repartidores,
-                pruebas de entrega, cancelaciones e incidencias.
+                dispatch, pagos, pruebas de entrega, cancelaciones e incidencias.
               </p>
             </div>
 
@@ -1189,7 +1190,7 @@
 
           <div class="table-card">
             <div class="table-header">
-              <h3>Órdenes de delivery</h3>
+              <h3>delivery_orders</h3>
               <span id="deliveryTableCount">0 registros</span>
             </div>
 
@@ -1236,7 +1237,7 @@
               <h2 id="ridesTitle">Viajes / Solicitudes</h2>
               <p>
                 Consulta de viajes solicitados, aceptados, completados, cancelados,
-                usuarios, conductores, tarifas e incidencias.
+                usuarios, conductores, tipos de transporte, tarifas e incidencias.
               </p>
             </div>
 
@@ -1249,7 +1250,7 @@
 
           <div class="table-card">
             <div class="table-header">
-              <h3>Solicitudes de viaje</h3>
+              <h3>ride_requests</h3>
               <span id="ridesTableCount">0 registros</span>
             </div>
 
@@ -1358,8 +1359,8 @@
               <p class="eyebrow">Saldo y movimientos</p>
               <h2 id="walletTitle">Wallet / Recargas</h2>
               <p>
-                Control de wallets, recargas con tarjeta, recargas por agente,
-                bonos, ajustes administrativos y movimientos ledger.
+                Control de driver_wallets, recargas, bonos de bienvenida,
+                ajustes administrativos y driver_wallet_transactions.
               </p>
             </div>
 
@@ -1372,7 +1373,7 @@
 
           <div class="table-card">
             <div class="table-header">
-              <h3>Movimientos wallet</h3>
+              <h3>driver_wallet_transactions</h3>
               <span id="walletLedgerTableCount">0 registros</span>
             </div>
 
@@ -1419,7 +1420,7 @@
               <h2 id="cashSettlementsTitle">Liquidaciones de efectivo</h2>
               <p>
                 Control de efectivo pendiente, vencido, comprobantes subidos,
-                aprobación/rechazo y bloqueo por deuda.
+                aprobación/rechazo y bloqueo por deuda. Módulo preparado para cash_settlements.
               </p>
             </div>
 
@@ -1477,8 +1478,8 @@
               <p class="eyebrow">Atención operativa</p>
               <h2 id="supportTitle">Soporte e incidencias</h2>
               <p>
-                Gestión de reportes entre usuarios, conductores, comercios,
-                agentes, pagos, paquetes, órdenes y viajes.
+                Gestión de support_tickets y safety_reports entre usuarios,
+                conductores, comercios, agentes, pagos, paquetes, órdenes y viajes.
               </p>
             </div>
 
@@ -1539,6 +1540,7 @@
               <p>
                 Advertencias, bloqueos temporales, desactivación de servicios,
                 suspensión por documentos, efectivo pendiente y reincidencias.
+                Módulo preparado para driver_sanctions y driver_policy_events.
               </p>
             </div>
 
@@ -1598,7 +1600,7 @@
               <h2 id="notificationsTitle">Notificaciones</h2>
               <p>
                 Envío de avisos a usuarios, conductores, comercios, agentes,
-                zonas completas o perfiles específicos.
+                zonas completas o perfiles específicos usando notifications.
               </p>
             </div>
 
@@ -1655,8 +1657,8 @@
               <p class="eyebrow">Trazabilidad</p>
               <h2 id="auditTitle">Auditoría administrativa</h2>
               <p>
-                Registro inalterable de acciones críticas: aprobaciones, rechazos,
-                bloqueos, cambios de zona, tarifas, permisos y creación de admins.
+                Registro de acciones críticas: aprobaciones, rechazos, bloqueos,
+                cambios de zona, tarifas, permisos, notificaciones y creación de admins.
               </p>
             </div>
 
@@ -1669,7 +1671,7 @@
 
           <div class="table-card">
             <div class="table-header">
-              <h3>Admin actions</h3>
+              <h3>admin_actions / audit_logs</h3>
               <span id="auditTableCount">0 registros</span>
             </div>
 
@@ -1715,7 +1717,7 @@
               <h2 id="settingsTitle">Configuración general</h2>
               <p>
                 Parámetros globales de NIVO, permisos internos, operación,
-                mantenimiento, seguridad y futuras integraciones.
+                mantenimiento, seguridad, finanzas, referidos y futuras integraciones.
               </p>
             </div>
           </div>
@@ -1744,7 +1746,7 @@
               <div class="panel-header">
                 <div>
                   <p class="eyebrow">Operación</p>
-                  <h3>Modo de plataforma</h3>
+                  <h3>platform_configs</h3>
                 </div>
               </div>
 
@@ -1905,8 +1907,9 @@
         </label>
 
         <div class="modal-warning">
-          Esta acción actualizará el perfil, el estado del usuario base cuando
-          aplique y creará un registro en admin_actions.
+          Esta acción actualizará documentos operativos según el perfil:
+          conductores en driver_profiles, driver_vehicles y driver_wallets;
+          comercios en commerce_profiles y commerce_users. También creará registro en admin_actions.
         </div>
 
         <footer class="modal-actions">
@@ -1991,7 +1994,7 @@
         </fieldset>
 
         <div class="modal-warning">
-          Solo owner o super_admin pueden crear administradores. Esta acción será
+          Solo owner o super_admin deben crear administradores. Esta acción será
           guardada en auditoría.
         </div>
 
@@ -2161,6 +2164,11 @@
           <label><input type="checkbox" id="rideTypeChargesPerPassenger" /> Cobra por persona</label>
           <label><input type="checkbox" id="rideTypeRequiresPassengerSelection" /> Requiere selección de pasajeros</label>
         </fieldset>
+
+        <div class="modal-warning">
+          En la versión actual, las categorías reales se derivan desde
+          fare_configs.transportConfigs. La colección global ride_types queda preparada para una fase futura.
+        </div>
 
         <footer class="modal-actions">
           <button class="btn btn-secondary" type="button" data-action="close-ride-type-modal">
