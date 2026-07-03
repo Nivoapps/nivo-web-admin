@@ -1,0 +1,2346 @@
+<!DOCTYPE html>
+<html lang="es-SV" class="no-js">
+<head>
+  <meta charset="UTF-8" />
+  <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+  <title>NIVO Dashboard | Centro Administrativo</title>
+
+  <meta
+    name="description"
+    content="Dashboard administrativo de NIVO para operación, revisión de conductores, comercios, usuarios, agentes, zonas, métricas y seguridad."
+  />
+  <meta name="robots" content="noindex, nofollow" />
+  <meta name="theme-color" content="#05070A" />
+
+  <link rel="stylesheet" href="assets/css/dashboard.css" />
+</head>
+
+<body data-app="nivo-dashboard">
+  <a class="skip-link" href="#dashboardMain">Saltar al contenido principal</a>
+
+  <!-- =====================================================
+       AUTH / LOADING GATE
+  ====================================================== -->
+
+  <section
+    id="dashboardAuthGate"
+    class="dashboard-auth-gate"
+    aria-live="polite"
+    aria-busy="true"
+  >
+    <div class="auth-gate-card">
+      <div class="auth-gate-logo" aria-hidden="true">
+        <span>N</span>
+      </div>
+
+      <div class="auth-gate-content">
+        <p class="eyebrow">NIVO ADMIN</p>
+        <h1>Verificando acceso administrativo</h1>
+        <p>
+          Estamos validando tu sesión, permisos y estado de cuenta antes de abrir
+          el centro operativo.
+        </p>
+      </div>
+
+      <div class="auth-gate-loader" aria-hidden="true">
+        <span></span>
+        <span></span>
+        <span></span>
+      </div>
+    </div>
+  </section>
+
+  <!-- =====================================================
+       ACCESS DENIED
+  ====================================================== -->
+
+  <section id="dashboardAccessDenied" class="dashboard-access-denied" hidden>
+    <div class="access-denied-card">
+      <div class="access-denied-icon" aria-hidden="true">!</div>
+
+      <p class="eyebrow danger">Acceso restringido</p>
+      <h1>No tienes permisos para entrar al dashboard</h1>
+      <p>
+        Esta área es exclusiva para cuentas administrativas activas. Si crees que
+        esto es un error, solicita que un owner o super admin revise tu cuenta.
+      </p>
+
+      <div class="access-denied-actions">
+        <a class="btn btn-primary" href="login.html">Volver al login</a>
+        <a class="btn btn-secondary" href="index.html">Ir al inicio</a>
+      </div>
+    </div>
+  </section>
+
+  <!-- =====================================================
+       DASHBOARD SHELL
+  ====================================================== -->
+
+  <div id="dashboardShell" class="dashboard-shell" hidden>
+    <!-- =====================================================
+         SIDEBAR
+    ====================================================== -->
+
+    <aside
+      id="dashboardSidebar"
+      class="dashboard-sidebar"
+      aria-label="Navegación principal del dashboard"
+    >
+      <div class="sidebar-brand">
+        <a href="dashboard.html" class="brand-mark" aria-label="NIVO Dashboard">
+          <span class="brand-icon" aria-hidden="true">N</span>
+          <span class="brand-text">
+            <strong>NIVO</strong>
+            <small>Centro Administrativo</small>
+          </span>
+        </a>
+
+        <button
+          id="sidebarCloseBtn"
+          class="sidebar-close"
+          type="button"
+          aria-label="Cerrar menú"
+        >
+          ×
+        </button>
+      </div>
+
+      <div class="sidebar-status">
+        <span class="status-dot online" aria-hidden="true"></span>
+        <span>Operación conectada</span>
+      </div>
+
+      <nav class="sidebar-nav" aria-label="Módulos administrativos">
+        <p class="nav-group-label">Operación</p>
+
+        <button class="nav-item active" type="button" data-section-target="overview">
+          <span class="nav-icon" aria-hidden="true">⌂</span>
+          <span>Resumen</span>
+        </button>
+
+        <button class="nav-item" type="button" data-section-target="users">
+          <span class="nav-icon" aria-hidden="true">👤</span>
+          <span>Usuarios</span>
+        </button>
+
+        <button class="nav-item" type="button" data-section-target="drivers">
+          <span class="nav-icon" aria-hidden="true">🚘</span>
+          <span>Conductores</span>
+        </button>
+
+        <button class="nav-item nav-item-important" type="button" data-section-target="driver-review">
+          <span class="nav-icon" aria-hidden="true">✓</span>
+          <span>Revisión conductores</span>
+          <strong id="navPendingDriversCount" class="nav-count">0</strong>
+        </button>
+
+        <button class="nav-item" type="button" data-section-target="commerce">
+          <span class="nav-icon" aria-hidden="true">🏪</span>
+          <span>Comercios</span>
+        </button>
+
+        <button class="nav-item nav-item-important" type="button" data-section-target="commerce-review">
+          <span class="nav-icon" aria-hidden="true">✓</span>
+          <span>Revisión comercios</span>
+          <strong id="navPendingCommerceCount" class="nav-count">0</strong>
+        </button>
+
+        <button class="nav-item" type="button" data-section-target="agents">
+          <span class="nav-icon" aria-hidden="true">●</span>
+          <span>Agentes NIVO</span>
+        </button>
+
+        <p class="nav-group-label">Configuración operativa</p>
+
+        <button class="nav-item" type="button" data-section-target="zones">
+          <span class="nav-icon" aria-hidden="true">◎</span>
+          <span>Zonas operativas</span>
+        </button>
+
+        <button class="nav-item" type="button" data-section-target="ride-types">
+          <span class="nav-icon" aria-hidden="true">▣</span>
+          <span>Categorías transporte</span>
+        </button>
+
+        <button class="nav-item" type="button" data-section-target="pricing">
+          <span class="nav-icon" aria-hidden="true">$</span>
+          <span>Tarifas y comisiones</span>
+        </button>
+
+        <p class="nav-group-label">Servicios</p>
+
+        <button class="nav-item" type="button" data-section-target="delivery">
+          <span class="nav-icon" aria-hidden="true">▤</span>
+          <span>Delivery / Órdenes</span>
+        </button>
+
+        <button class="nav-item" type="button" data-section-target="rides">
+          <span class="nav-icon" aria-hidden="true">↗</span>
+          <span>Viajes</span>
+        </button>
+
+        <button class="nav-item" type="button" data-section-target="locations">
+          <span class="nav-icon" aria-hidden="true">⌖</span>
+          <span>Ubicaciones</span>
+        </button>
+
+        <p class="nav-group-label">Finanzas</p>
+
+        <button class="nav-item" type="button" data-section-target="wallet">
+          <span class="nav-icon" aria-hidden="true">◈</span>
+          <span>Wallet / Recargas</span>
+        </button>
+
+        <button class="nav-item" type="button" data-section-target="cash-settlements">
+          <span class="nav-icon" aria-hidden="true">▥</span>
+          <span>Liquidaciones</span>
+        </button>
+
+        <p class="nav-group-label">Control y seguridad</p>
+
+        <button class="nav-item" type="button" data-section-target="support">
+          <span class="nav-icon" aria-hidden="true">?</span>
+          <span>Soporte e incidencias</span>
+        </button>
+
+        <button class="nav-item" type="button" data-section-target="sanctions">
+          <span class="nav-icon" aria-hidden="true">⚠</span>
+          <span>Sanciones</span>
+        </button>
+
+        <button class="nav-item" type="button" data-section-target="notifications">
+          <span class="nav-icon" aria-hidden="true">✦</span>
+          <span>Notificaciones</span>
+        </button>
+
+        <button class="nav-item" type="button" data-section-target="audit">
+          <span class="nav-icon" aria-hidden="true">≡</span>
+          <span>Auditoría</span>
+        </button>
+
+        <button class="nav-item" type="button" data-section-target="settings">
+          <span class="nav-icon" aria-hidden="true">⚙</span>
+          <span>Configuración</span>
+        </button>
+      </nav>
+
+      <div class="sidebar-admin-card">
+        <p class="eyebrow">Sesión administrativa</p>
+        <strong id="sidebarAdminName">Admin NIVO</strong>
+        <span id="sidebarAdminEmail">Cargando...</span>
+        <span id="sidebarAdminRole" class="role-pill">admin</span>
+      </div>
+    </aside>
+
+    <!-- =====================================================
+         MAIN WRAPPER
+    ====================================================== -->
+
+    <div class="dashboard-workspace">
+      <!-- =====================================================
+           TOPBAR
+      ====================================================== -->
+
+      <header class="dashboard-topbar">
+        <div class="topbar-left">
+          <button
+            id="sidebarOpenBtn"
+            class="icon-btn mobile-menu-btn"
+            type="button"
+            aria-label="Abrir menú"
+          >
+            ☰
+          </button>
+
+          <div class="topbar-title">
+            <p id="dashboardBreadcrumb" class="eyebrow">Dashboard / Resumen</p>
+            <h1 id="dashboardPageTitle">Centro operativo NIVO</h1>
+          </div>
+        </div>
+
+        <div class="topbar-search" role="search">
+          <label for="globalSearch" class="sr-only">Buscar en el dashboard</label>
+          <input
+            id="globalSearch"
+            type="search"
+            placeholder="Buscar usuario, conductor, comercio, teléfono, correo..."
+            autocomplete="off"
+          />
+          <span aria-hidden="true">⌕</span>
+        </div>
+
+        <div class="topbar-actions">
+          <button
+            id="refreshDashboardBtn"
+            class="icon-btn"
+            type="button"
+            aria-label="Actualizar datos"
+            title="Actualizar datos"
+          >
+            ↻
+          </button>
+
+          <button
+            id="openNotificationsBtn"
+            class="icon-btn notification-btn"
+            type="button"
+            aria-label="Abrir notificaciones"
+            title="Notificaciones"
+          >
+            ✦
+            <span id="notificationBadge" class="notification-badge" hidden>0</span>
+          </button>
+
+          <button
+            id="logoutBtn"
+            class="btn btn-ghost"
+            type="button"
+          >
+            Cerrar sesión
+          </button>
+        </div>
+      </header>
+
+      <!-- =====================================================
+           MAIN CONTENT
+      ====================================================== -->
+
+      <main id="dashboardMain" class="dashboard-main" tabindex="-1">
+        <!-- =====================================================
+             OVERVIEW
+        ====================================================== -->
+
+        <section
+          id="section-overview"
+          class="dashboard-section active"
+          data-section="overview"
+          aria-labelledby="overviewTitle"
+        >
+          <div class="section-heading">
+            <div>
+              <p class="eyebrow">Vista general</p>
+              <h2 id="overviewTitle">Resumen de operación</h2>
+              <p>
+                Métricas principales de usuarios, conductores, comercios, agentes,
+                zonas activas y actividad operativa.
+              </p>
+            </div>
+
+            <div class="section-actions">
+              <select id="overviewDateRange" aria-label="Rango de fechas">
+                <option value="today">Hoy</option>
+                <option value="yesterday">Ayer</option>
+                <option value="7d" selected>Últimos 7 días</option>
+                <option value="30d">Últimos 30 días</option>
+                <option value="month">Este mes</option>
+                <option value="custom">Rango personalizado</option>
+              </select>
+
+              <button class="btn btn-secondary" type="button" data-action="export-overview">
+                Exportar
+              </button>
+            </div>
+          </div>
+
+          <div class="metrics-grid">
+            <article class="metric-card">
+              <span class="metric-label">Usuarios registrados</span>
+              <strong id="metricTotalUsers">0</strong>
+              <small id="metricUsersTrend">Sin datos todavía</small>
+            </article>
+
+            <article class="metric-card">
+              <span class="metric-label">Usuarios activos</span>
+              <strong id="metricActiveUsers">0</strong>
+              <small>status: active</small>
+            </article>
+
+            <article class="metric-card primary">
+              <span class="metric-label">Conductores registrados</span>
+              <strong id="metricTotalDrivers">0</strong>
+              <small>Todos los perfiles driver</small>
+            </article>
+
+            <article class="metric-card">
+              <span class="metric-label">Conductores activos</span>
+              <strong id="metricActiveDrivers">0</strong>
+              <small>Aprobados para operar</small>
+            </article>
+
+            <article class="metric-card warning">
+              <span class="metric-label">Conductores por revisar</span>
+              <strong id="metricPendingDrivers">0</strong>
+              <small>pending_review / correction</small>
+            </article>
+
+            <article class="metric-card">
+              <span class="metric-label">Comercios registrados</span>
+              <strong id="metricTotalCommerce">0</strong>
+              <small>commerce_profiles</small>
+            </article>
+
+            <article class="metric-card">
+              <span class="metric-label">Comercios activos</span>
+              <strong id="metricActiveCommerce">0</strong>
+              <small>Visibles y operativos</small>
+            </article>
+
+            <article class="metric-card">
+              <span class="metric-label">Agentes NIVO</span>
+              <strong id="metricTotalAgents">0</strong>
+              <small>Puntos de recarga</small>
+            </article>
+
+            <article class="metric-card">
+              <span class="metric-label">Zonas activas</span>
+              <strong id="metricServiceZones">0</strong>
+              <small>Municipios operativos</small>
+            </article>
+
+            <article class="metric-card">
+              <span class="metric-label">Viajes</span>
+              <strong id="metricRideRequests">0</strong>
+              <small>Solicitudes registradas</small>
+            </article>
+
+            <article class="metric-card">
+              <span class="metric-label">Delivery orders</span>
+              <strong id="metricDeliveryOrders">0</strong>
+              <small>Órdenes registradas</small>
+            </article>
+
+            <article class="metric-card">
+              <span class="metric-label">Volumen wallet</span>
+              <strong id="metricWalletVolume">$0.00</strong>
+              <small>Recargas / movimientos</small>
+            </article>
+          </div>
+
+          <div class="overview-grid">
+            <article class="panel">
+              <div class="panel-header">
+                <div>
+                  <p class="eyebrow">Distribución</p>
+                  <h3>Conductores por tipo</h3>
+                </div>
+              </div>
+
+              <div class="vehicle-summary-grid">
+                <div class="vehicle-summary-card">
+                  <span>Carros</span>
+                  <strong id="metricDriversCar">0</strong>
+                </div>
+                <div class="vehicle-summary-card">
+                  <span>Motos</span>
+                  <strong id="metricDriversMotorcycle">0</strong>
+                </div>
+                <div class="vehicle-summary-card">
+                  <span>Mototaxis</span>
+                  <strong id="metricDriversMototaxi">0</strong>
+                </div>
+                <div class="vehicle-summary-card">
+                  <span>Qutes</span>
+                  <strong id="metricDriversQute">0</strong>
+                </div>
+                <div class="vehicle-summary-card">
+                  <span>Delivery</span>
+                  <strong id="metricDriversDelivery">0</strong>
+                </div>
+                <div class="vehicle-summary-card">
+                  <span>Disponibles</span>
+                  <strong id="metricDriversAvailable">0</strong>
+                </div>
+              </div>
+            </article>
+
+            <article class="panel">
+              <div class="panel-header">
+                <div>
+                  <p class="eyebrow">Alertas</p>
+                  <h3>Atención requerida</h3>
+                </div>
+              </div>
+
+              <div id="criticalAlertsList" class="alert-list">
+                <div class="empty-inline">
+                  No hay alertas críticas cargadas todavía.
+                </div>
+              </div>
+            </article>
+
+            <article class="panel wide">
+              <div class="panel-header">
+                <div>
+                  <p class="eyebrow">Actividad</p>
+                  <h3>Últimas acciones administrativas</h3>
+                </div>
+
+                <button class="text-btn" type="button" data-section-target="audit">
+                  Ver auditoría
+                </button>
+              </div>
+
+              <div id="recentAdminActions" class="activity-feed">
+                <div class="empty-inline">
+                  Todavía no hay acciones administrativas registradas.
+                </div>
+              </div>
+            </article>
+          </div>
+        </section>
+
+        <!-- =====================================================
+             USERS
+        ====================================================== -->
+
+        <section
+          id="section-users"
+          class="dashboard-section"
+          data-section="users"
+          aria-labelledby="usersTitle"
+          hidden
+        >
+          <div class="section-heading">
+            <div>
+              <p class="eyebrow">Identidad base</p>
+              <h2 id="usersTitle">Usuarios registrados</h2>
+              <p>
+                Control de clientes, cuentas base, estados, actividad y conversión
+                autorizada de usuarios en administradores.
+              </p>
+            </div>
+
+            <div class="section-actions">
+              <button class="btn btn-secondary" type="button" data-action="reload-users">
+                Actualizar usuarios
+              </button>
+            </div>
+          </div>
+
+          <div class="filters-bar">
+            <label>
+              Buscar
+              <input id="usersSearchInput" type="search" placeholder="Nombre, correo, teléfono..." />
+            </label>
+
+            <label>
+              Rol
+              <select id="usersRoleFilter">
+                <option value="all">Todos</option>
+                <option value="user">Usuario</option>
+                <option value="driver">Conductor</option>
+                <option value="commerce">Comercio</option>
+                <option value="agent">Agente</option>
+              </select>
+            </label>
+
+            <label>
+              Estado
+              <select id="usersStatusFilter">
+                <option value="all">Todos</option>
+                <option value="active">Activo</option>
+                <option value="pending_profile">Perfil pendiente</option>
+                <option value="blocked">Bloqueado</option>
+                <option value="rejected">Rechazado</option>
+                <option value="suspended">Suspendido</option>
+              </select>
+            </label>
+
+            <label>
+              Zona
+              <select id="usersZoneFilter">
+                <option value="all">Todas las zonas</option>
+              </select>
+            </label>
+          </div>
+
+          <div class="table-card">
+            <div class="table-header">
+              <h3>Listado de usuarios</h3>
+              <span id="usersTableCount">0 registros</span>
+            </div>
+
+            <div class="table-scroll">
+              <table class="data-table" id="usersTable">
+                <thead>
+                  <tr>
+                    <th>Usuario</th>
+                    <th>Rol</th>
+                    <th>Estado</th>
+                    <th>Zona</th>
+                    <th>Registro</th>
+                    <th>Último login</th>
+                    <th class="table-actions-col">Acciones</th>
+                  </tr>
+                </thead>
+                <tbody id="usersTableBody">
+                  <tr>
+                    <td colspan="7">
+                      <div class="empty-state compact">Cargando usuarios...</div>
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </section>
+
+        <!-- =====================================================
+             DRIVERS
+        ====================================================== -->
+
+        <section
+          id="section-drivers"
+          class="dashboard-section"
+          data-section="drivers"
+          aria-labelledby="driversTitle"
+          hidden
+        >
+          <div class="section-heading">
+            <div>
+              <p class="eyebrow">Operación logística</p>
+              <h2 id="driversTitle">Conductores y repartidores</h2>
+              <p>
+                Consulta de conductores registrados, activos, online, bloqueados,
+                tipo de vehículo y servicios habilitados.
+              </p>
+            </div>
+
+            <div class="section-actions">
+              <button class="btn btn-secondary" type="button" data-action="reload-drivers">
+                Actualizar conductores
+              </button>
+            </div>
+          </div>
+
+          <div class="status-summary-row">
+            <button class="summary-chip active" type="button" data-driver-filter="all">
+              Todos <strong id="driversCountAll">0</strong>
+            </button>
+            <button class="summary-chip" type="button" data-driver-filter="active">
+              Activos <strong id="driversCountActive">0</strong>
+            </button>
+            <button class="summary-chip" type="button" data-driver-filter="online">
+              Online <strong id="driversCountOnline">0</strong>
+            </button>
+            <button class="summary-chip" type="button" data-driver-filter="pending_review">
+              Revisión <strong id="driversCountReview">0</strong>
+            </button>
+            <button class="summary-chip" type="button" data-driver-filter="blocked">
+              Bloqueados <strong id="driversCountBlocked">0</strong>
+            </button>
+          </div>
+
+          <div class="filters-bar">
+            <label>
+              Buscar
+              <input id="driversSearchInput" type="search" placeholder="Nombre, placa, teléfono..." />
+            </label>
+
+            <label>
+              Vehículo
+              <select id="driversVehicleFilter">
+                <option value="all">Todos</option>
+                <option value="car">Carro</option>
+                <option value="motorcycle">Moto</option>
+                <option value="mototaxi">Mototaxi</option>
+                <option value="qute">Qute</option>
+              </select>
+            </label>
+
+            <label>
+              Servicio
+              <select id="driversServiceFilter">
+                <option value="all">Todos</option>
+                <option value="ride">Viajes</option>
+                <option value="delivery">Delivery</option>
+                <option value="package">Paquetes</option>
+                <option value="school">Escolar</option>
+              </select>
+            </label>
+
+            <label>
+              Zona
+              <select id="driversZoneFilter">
+                <option value="all">Todas las zonas</option>
+              </select>
+            </label>
+          </div>
+
+          <div class="table-card">
+            <div class="table-header">
+              <h3>Listado de conductores</h3>
+              <span id="driversTableCount">0 registros</span>
+            </div>
+
+            <div class="table-scroll">
+              <table class="data-table" id="driversTable">
+                <thead>
+                  <tr>
+                    <th>Conductor</th>
+                    <th>Vehículo</th>
+                    <th>Servicios</th>
+                    <th>Estado</th>
+                    <th>Disponibilidad</th>
+                    <th>Zona</th>
+                    <th>Rating</th>
+                    <th class="table-actions-col">Acciones</th>
+                  </tr>
+                </thead>
+                <tbody id="driversTableBody">
+                  <tr>
+                    <td colspan="8">
+                      <div class="empty-state compact">Cargando conductores...</div>
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </section>
+
+        <!-- =====================================================
+             DRIVER REVIEW
+        ====================================================== -->
+
+        <section
+          id="section-driver-review"
+          class="dashboard-section"
+          data-section="driver-review"
+          aria-labelledby="driverReviewTitle"
+          hidden
+        >
+          <div class="section-heading">
+            <div>
+              <p class="eyebrow">Función principal</p>
+              <h2 id="driverReviewTitle">Aprobación de conductores</h2>
+              <p>
+                Revisión de selfie, DUI, licencia, tarjeta de circulación,
+                vehículo, servicios seleccionados y decisión administrativa.
+              </p>
+            </div>
+
+            <div class="section-actions">
+              <button class="btn btn-secondary" type="button" data-action="reload-driver-review">
+                Actualizar revisión
+              </button>
+            </div>
+          </div>
+
+          <div class="review-board">
+            <article class="review-column" data-review-column="pending_documents">
+              <header>
+                <h3>Documentos pendientes</h3>
+                <strong id="reviewPendingDocumentsCount">0</strong>
+              </header>
+              <div id="reviewPendingDocumentsList" class="review-list">
+                <div class="empty-state compact">Sin conductores en esta etapa.</div>
+              </div>
+            </article>
+
+            <article class="review-column featured" data-review-column="pending_review">
+              <header>
+                <h3>Listos para revisar</h3>
+                <strong id="reviewPendingReviewCount">0</strong>
+              </header>
+              <div id="reviewPendingReviewList" class="review-list">
+                <div class="empty-state compact">Sin conductores listos para revisión.</div>
+              </div>
+            </article>
+
+            <article class="review-column" data-review-column="correction_required">
+              <header>
+                <h3>Corrección requerida</h3>
+                <strong id="reviewCorrectionRequiredCount">0</strong>
+              </header>
+              <div id="reviewCorrectionRequiredList" class="review-list">
+                <div class="empty-state compact">Sin correcciones pendientes.</div>
+              </div>
+            </article>
+          </div>
+
+          <div class="table-card">
+            <div class="table-header">
+              <h3>Conductores pendientes de decisión</h3>
+              <span id="driverReviewTableCount">0 registros</span>
+            </div>
+
+            <div class="table-scroll">
+              <table class="data-table" id="driverReviewTable">
+                <thead>
+                  <tr>
+                    <th>Conductor</th>
+                    <th>Vehículo</th>
+                    <th>Documentos</th>
+                    <th>Estado revisión</th>
+                    <th>Fecha envío</th>
+                    <th class="table-actions-col">Decisión</th>
+                  </tr>
+                </thead>
+                <tbody id="driverReviewTableBody">
+                  <tr>
+                    <td colspan="6">
+                      <div class="empty-state compact">Cargando revisión de conductores...</div>
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </section>
+
+        <!-- =====================================================
+             COMMERCE
+        ====================================================== -->
+
+        <section
+          id="section-commerce"
+          class="dashboard-section"
+          data-section="commerce"
+          aria-labelledby="commerceTitle"
+          hidden
+        >
+          <div class="section-heading">
+            <div>
+              <p class="eyebrow">NIVO Commerce</p>
+              <h2 id="commerceTitle">Comercios registrados</h2>
+              <p>
+                Administración de comercios, visibilidad, catálogo, planes,
+                comisiones, órdenes y estado operativo.
+              </p>
+            </div>
+
+            <div class="section-actions">
+              <button class="btn btn-secondary" type="button" data-action="reload-commerce">
+                Actualizar comercios
+              </button>
+            </div>
+          </div>
+
+          <div class="filters-bar">
+            <label>
+              Buscar
+              <input id="commerceSearchInput" type="search" placeholder="Negocio, dueño, correo..." />
+            </label>
+
+            <label>
+              Estado
+              <select id="commerceStatusFilter">
+                <option value="all">Todos</option>
+                <option value="active">Activos</option>
+                <option value="pending_profile">Perfil pendiente</option>
+                <option value="pending_review">En revisión</option>
+                <option value="correction_required">Corrección</option>
+                <option value="blocked">Bloqueados</option>
+              </select>
+            </label>
+
+            <label>
+              Plan
+              <select id="commercePlanFilter">
+                <option value="all">Todos</option>
+                <option value="none">Sin plan</option>
+                <option value="basic">Básico</option>
+                <option value="premium">Premium</option>
+              </select>
+            </label>
+
+            <label>
+              Zona
+              <select id="commerceZoneFilter">
+                <option value="all">Todas las zonas</option>
+              </select>
+            </label>
+          </div>
+
+          <div class="table-card">
+            <div class="table-header">
+              <h3>Listado de comercios</h3>
+              <span id="commerceTableCount">0 registros</span>
+            </div>
+
+            <div class="table-scroll">
+              <table class="data-table" id="commerceTable">
+                <thead>
+                  <tr>
+                    <th>Comercio</th>
+                    <th>Dueño</th>
+                    <th>Categoría</th>
+                    <th>Estado</th>
+                    <th>Visible</th>
+                    <th>Plan</th>
+                    <th>Zona</th>
+                    <th class="table-actions-col">Acciones</th>
+                  </tr>
+                </thead>
+                <tbody id="commerceTableBody">
+                  <tr>
+                    <td colspan="8">
+                      <div class="empty-state compact">Cargando comercios...</div>
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </section>
+
+        <!-- =====================================================
+             COMMERCE REVIEW
+        ====================================================== -->
+
+        <section
+          id="section-commerce-review"
+          class="dashboard-section"
+          data-section="commerce-review"
+          aria-labelledby="commerceReviewTitle"
+          hidden
+        >
+          <div class="section-heading">
+            <div>
+              <p class="eyebrow">Función principal</p>
+              <h2 id="commerceReviewTitle">Aprobación de comercios</h2>
+              <p>
+                Revisión de comercios, datos del negocio, categoría, zona,
+                visibilidad, permiso para recibir órdenes y estado comercial.
+              </p>
+            </div>
+
+            <div class="section-actions">
+              <button class="btn btn-secondary" type="button" data-action="reload-commerce-review">
+                Actualizar revisión
+              </button>
+            </div>
+          </div>
+
+          <div class="table-card">
+            <div class="table-header">
+              <h3>Comercios pendientes de decisión</h3>
+              <span id="commerceReviewTableCount">0 registros</span>
+            </div>
+
+            <div class="table-scroll">
+              <table class="data-table" id="commerceReviewTable">
+                <thead>
+                  <tr>
+                    <th>Comercio</th>
+                    <th>Dueño</th>
+                    <th>Estado</th>
+                    <th>Categoría</th>
+                    <th>Zona</th>
+                    <th>Enviado</th>
+                    <th class="table-actions-col">Decisión</th>
+                  </tr>
+                </thead>
+                <tbody id="commerceReviewTableBody">
+                  <tr>
+                    <td colspan="7">
+                      <div class="empty-state compact">Cargando revisión de comercios...</div>
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </section>
+
+        <!-- =====================================================
+             AGENTS
+        ====================================================== -->
+
+        <section
+          id="section-agents"
+          class="dashboard-section"
+          data-section="agents"
+          aria-labelledby="agentsTitle"
+          hidden
+        >
+          <div class="section-heading">
+            <div>
+              <p class="eyebrow">Puntos NIVO</p>
+              <h2 id="agentsTitle">Agentes NIVO</h2>
+              <p>
+                Control de agentes autorizados para recargas, límites, estados,
+                comisiones y actividad.
+              </p>
+            </div>
+
+            <div class="section-actions">
+              <button class="btn btn-secondary" type="button" data-action="reload-agents">
+                Actualizar agentes
+              </button>
+            </div>
+          </div>
+
+          <div class="table-card">
+            <div class="table-header">
+              <h3>Listado de agentes</h3>
+              <span id="agentsTableCount">0 registros</span>
+            </div>
+
+            <div class="table-scroll">
+              <table class="data-table" id="agentsTable">
+                <thead>
+                  <tr>
+                    <th>Agente</th>
+                    <th>Estado</th>
+                    <th>Zona</th>
+                    <th>Puede recargar</th>
+                    <th>Límite diario</th>
+                    <th>Límite mensual</th>
+                    <th>Comisión</th>
+                    <th class="table-actions-col">Acciones</th>
+                  </tr>
+                </thead>
+                <tbody id="agentsTableBody">
+                  <tr>
+                    <td colspan="8">
+                      <div class="empty-state compact">Cargando agentes...</div>
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </section>
+
+        <!-- =====================================================
+             ZONES
+        ====================================================== -->
+
+        <section
+          id="section-zones"
+          class="dashboard-section"
+          data-section="zones"
+          aria-labelledby="zonesTitle"
+          hidden
+        >
+          <div class="section-heading">
+            <div>
+              <p class="eyebrow">Expansión territorial</p>
+              <h2 id="zonesTitle">Zonas operativas</h2>
+              <p>
+                Configuración de país, departamentos, municipios, servicios activos,
+                tipos de transporte permitidos y tarifas por zona.
+              </p>
+            </div>
+
+            <div class="section-actions">
+              <button class="btn btn-primary" type="button" data-action="open-zone-modal">
+                Nueva zona
+              </button>
+            </div>
+          </div>
+
+          <div class="table-card">
+            <div class="table-header">
+              <h3>Service zones</h3>
+              <span id="zonesTableCount">0 registros</span>
+            </div>
+
+            <div class="table-scroll">
+              <table class="data-table" id="zonesTable">
+                <thead>
+                  <tr>
+                    <th>Zona</th>
+                    <th>Departamento</th>
+                    <th>Municipio</th>
+                    <th>Servicios</th>
+                    <th>Transportes</th>
+                    <th>Estado</th>
+                    <th class="table-actions-col">Acciones</th>
+                  </tr>
+                </thead>
+                <tbody id="zonesTableBody">
+                  <tr>
+                    <td colspan="7">
+                      <div class="empty-state compact">Cargando zonas operativas...</div>
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </section>
+
+        <!-- =====================================================
+             RIDE TYPES
+        ====================================================== -->
+
+        <section
+          id="section-ride-types"
+          class="dashboard-section"
+          data-section="ride-types"
+          aria-labelledby="rideTypesTitle"
+          hidden
+        >
+          <div class="section-heading">
+            <div>
+              <p class="eyebrow">Catálogo global</p>
+              <h2 id="rideTypesTitle">Categorías de transporte</h2>
+              <p>
+                Alta, baja y edición de carro, moto, mototaxi, qute y nuevos tipos
+                de movilidad disponibles por zona.
+              </p>
+            </div>
+
+            <div class="section-actions">
+              <button class="btn btn-primary" type="button" data-action="open-ride-type-modal">
+                Nueva categoría
+              </button>
+            </div>
+          </div>
+
+          <div class="table-card">
+            <div class="table-header">
+              <h3>Ride types</h3>
+              <span id="rideTypesTableCount">0 registros</span>
+            </div>
+
+            <div class="table-scroll">
+              <table class="data-table" id="rideTypesTable">
+                <thead>
+                  <tr>
+                    <th>Categoría</th>
+                    <th>ID</th>
+                    <th>Estado global</th>
+                    <th>Pasajeros</th>
+                    <th>Cobra por persona</th>
+                    <th>Selección pasajeros</th>
+                    <th class="table-actions-col">Acciones</th>
+                  </tr>
+                </thead>
+                <tbody id="rideTypesTableBody">
+                  <tr>
+                    <td colspan="7">
+                      <div class="empty-state compact">Cargando categorías...</div>
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </section>
+
+        <!-- =====================================================
+             PRICING
+        ====================================================== -->
+
+        <section
+          id="section-pricing"
+          class="dashboard-section"
+          data-section="pricing"
+          aria-labelledby="pricingTitle"
+          hidden
+        >
+          <div class="section-heading">
+            <div>
+              <p class="eyebrow">Economía operativa</p>
+              <h2 id="pricingTitle">Tarifas y comisiones</h2>
+              <p>
+                Control por zona de tarifa base, tarifa mínima, precio por km,
+                precio por minuto, comisión NIVO, delivery y promociones.
+              </p>
+            </div>
+
+            <div class="section-actions">
+              <button class="btn btn-secondary" type="button" data-action="reload-pricing">
+                Actualizar tarifas
+              </button>
+            </div>
+          </div>
+
+          <div id="pricingConfigGrid" class="config-grid">
+            <div class="empty-state">
+              Las tarifas se cargarán desde service_zones y transportConfigs.
+            </div>
+          </div>
+        </section>
+
+        <!-- =====================================================
+             DELIVERY
+        ====================================================== -->
+
+        <section
+          id="section-delivery"
+          class="dashboard-section"
+          data-section="delivery"
+          aria-labelledby="deliveryTitle"
+          hidden
+        >
+          <div class="section-heading">
+            <div>
+              <p class="eyebrow">NIVO Delivery</p>
+              <h2 id="deliveryTitle">Delivery / Órdenes</h2>
+              <p>
+                Control de órdenes, estados, comercios, usuarios, repartidores,
+                pruebas de entrega, cancelaciones e incidencias.
+              </p>
+            </div>
+
+            <div class="section-actions">
+              <button class="btn btn-secondary" type="button" data-action="reload-delivery">
+                Actualizar órdenes
+              </button>
+            </div>
+          </div>
+
+          <div class="table-card">
+            <div class="table-header">
+              <h3>Órdenes de delivery</h3>
+              <span id="deliveryTableCount">0 registros</span>
+            </div>
+
+            <div class="table-scroll">
+              <table class="data-table" id="deliveryTable">
+                <thead>
+                  <tr>
+                    <th>Orden</th>
+                    <th>Usuario</th>
+                    <th>Comercio</th>
+                    <th>Repartidor</th>
+                    <th>Estado</th>
+                    <th>Total</th>
+                    <th>Creada</th>
+                    <th class="table-actions-col">Acciones</th>
+                  </tr>
+                </thead>
+                <tbody id="deliveryTableBody">
+                  <tr>
+                    <td colspan="8">
+                      <div class="empty-state compact">Cargando órdenes...</div>
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </section>
+
+        <!-- =====================================================
+             RIDES
+        ====================================================== -->
+
+        <section
+          id="section-rides"
+          class="dashboard-section"
+          data-section="rides"
+          aria-labelledby="ridesTitle"
+          hidden
+        >
+          <div class="section-heading">
+            <div>
+              <p class="eyebrow">NIVO Ride</p>
+              <h2 id="ridesTitle">Viajes / Solicitudes</h2>
+              <p>
+                Consulta de viajes solicitados, aceptados, completados, cancelados,
+                usuarios, conductores, tarifas e incidencias.
+              </p>
+            </div>
+
+            <div class="section-actions">
+              <button class="btn btn-secondary" type="button" data-action="reload-rides">
+                Actualizar viajes
+              </button>
+            </div>
+          </div>
+
+          <div class="table-card">
+            <div class="table-header">
+              <h3>Solicitudes de viaje</h3>
+              <span id="ridesTableCount">0 registros</span>
+            </div>
+
+            <div class="table-scroll">
+              <table class="data-table" id="ridesTable">
+                <thead>
+                  <tr>
+                    <th>Viaje</th>
+                    <th>Usuario</th>
+                    <th>Conductor</th>
+                    <th>Tipo</th>
+                    <th>Estado</th>
+                    <th>Tarifa</th>
+                    <th>Creado</th>
+                    <th class="table-actions-col">Acciones</th>
+                  </tr>
+                </thead>
+                <tbody id="ridesTableBody">
+                  <tr>
+                    <td colspan="8">
+                      <div class="empty-state compact">Cargando viajes...</div>
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </section>
+
+        <!-- =====================================================
+             LOCATIONS
+        ====================================================== -->
+
+        <section
+          id="section-locations"
+          class="dashboard-section"
+          data-section="locations"
+          aria-labelledby="locationsTitle"
+          hidden
+        >
+          <div class="section-heading">
+            <div>
+              <p class="eyebrow">Dato sensible</p>
+              <h2 id="locationsTitle">Ubicaciones operativas</h2>
+              <p>
+                Vista controlada de conductores online y ubicaciones temporales de
+                usuarios durante tareas activas, con permisos y auditoría.
+              </p>
+            </div>
+
+            <div class="section-actions">
+              <button class="btn btn-secondary" type="button" data-action="reload-locations">
+                Actualizar ubicaciones
+              </button>
+            </div>
+          </div>
+
+          <div class="sensitive-notice">
+            <strong>Uso restringido:</strong>
+            la ubicación solo debe consultarse por motivo operativo, soporte,
+            seguridad o tarea activa. Cada acceso debe registrarse en auditoría.
+          </div>
+
+          <div class="locations-grid">
+            <article class="panel map-panel">
+              <div class="panel-header">
+                <div>
+                  <p class="eyebrow">Mapa operativo</p>
+                  <h3>Conductores y tareas activas</h3>
+                </div>
+              </div>
+
+              <div id="operationsMap" class="map-placeholder">
+                <span>Mapa pendiente de conectar</span>
+              </div>
+            </article>
+
+            <article class="panel">
+              <div class="panel-header">
+                <div>
+                  <p class="eyebrow">Online</p>
+                  <h3>Conductores conectados</h3>
+                </div>
+              </div>
+
+              <div id="onlineDriversList" class="compact-list">
+                <div class="empty-state compact">Sin conductores online cargados.</div>
+              </div>
+            </article>
+          </div>
+        </section>
+
+        <!-- =====================================================
+             WALLET
+        ====================================================== -->
+
+        <section
+          id="section-wallet"
+          class="dashboard-section"
+          data-section="wallet"
+          aria-labelledby="walletTitle"
+          hidden
+        >
+          <div class="section-heading">
+            <div>
+              <p class="eyebrow">Saldo y movimientos</p>
+              <h2 id="walletTitle">Wallet / Recargas</h2>
+              <p>
+                Control de wallets, recargas con tarjeta, recargas por agente,
+                bonos, ajustes administrativos y movimientos ledger.
+              </p>
+            </div>
+
+            <div class="section-actions">
+              <button class="btn btn-secondary" type="button" data-action="reload-wallet">
+                Actualizar finanzas
+              </button>
+            </div>
+          </div>
+
+          <div class="table-card">
+            <div class="table-header">
+              <h3>Movimientos wallet</h3>
+              <span id="walletLedgerTableCount">0 registros</span>
+            </div>
+
+            <div class="table-scroll">
+              <table class="data-table" id="walletLedgerTable">
+                <thead>
+                  <tr>
+                    <th>Movimiento</th>
+                    <th>Usuario</th>
+                    <th>Tipo</th>
+                    <th>Monto</th>
+                    <th>Fuente</th>
+                    <th>Estado</th>
+                    <th>Fecha</th>
+                    <th class="table-actions-col">Acciones</th>
+                  </tr>
+                </thead>
+                <tbody id="walletLedgerTableBody">
+                  <tr>
+                    <td colspan="8">
+                      <div class="empty-state compact">Cargando movimientos...</div>
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </section>
+
+        <!-- =====================================================
+             CASH SETTLEMENTS
+        ====================================================== -->
+
+        <section
+          id="section-cash-settlements"
+          class="dashboard-section"
+          data-section="cash-settlements"
+          aria-labelledby="cashSettlementsTitle"
+          hidden
+        >
+          <div class="section-heading">
+            <div>
+              <p class="eyebrow">Liquidación manual</p>
+              <h2 id="cashSettlementsTitle">Liquidaciones de efectivo</h2>
+              <p>
+                Control de efectivo pendiente, vencido, comprobantes subidos,
+                aprobación/rechazo y bloqueo por deuda.
+              </p>
+            </div>
+
+            <div class="section-actions">
+              <button class="btn btn-secondary" type="button" data-action="reload-cash-settlements">
+                Actualizar liquidaciones
+              </button>
+            </div>
+          </div>
+
+          <div class="table-card">
+            <div class="table-header">
+              <h3>Comprobantes y saldos pendientes</h3>
+              <span id="cashSettlementsTableCount">0 registros</span>
+            </div>
+
+            <div class="table-scroll">
+              <table class="data-table" id="cashSettlementsTable">
+                <thead>
+                  <tr>
+                    <th>Conductor</th>
+                    <th>Pendiente</th>
+                    <th>Vencido</th>
+                    <th>Fecha límite</th>
+                    <th>Estado</th>
+                    <th>Comprobante</th>
+                    <th class="table-actions-col">Acciones</th>
+                  </tr>
+                </thead>
+                <tbody id="cashSettlementsTableBody">
+                  <tr>
+                    <td colspan="7">
+                      <div class="empty-state compact">Cargando liquidaciones...</div>
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </section>
+
+        <!-- =====================================================
+             SUPPORT
+        ====================================================== -->
+
+        <section
+          id="section-support"
+          class="dashboard-section"
+          data-section="support"
+          aria-labelledby="supportTitle"
+          hidden
+        >
+          <div class="section-heading">
+            <div>
+              <p class="eyebrow">Atención operativa</p>
+              <h2 id="supportTitle">Soporte e incidencias</h2>
+              <p>
+                Gestión de reportes entre usuarios, conductores, comercios,
+                agentes, pagos, paquetes, órdenes y viajes.
+              </p>
+            </div>
+
+            <div class="section-actions">
+              <button class="btn btn-secondary" type="button" data-action="reload-support">
+                Actualizar soporte
+              </button>
+            </div>
+          </div>
+
+          <div class="table-card">
+            <div class="table-header">
+              <h3>Incidencias</h3>
+              <span id="incidentsTableCount">0 registros</span>
+            </div>
+
+            <div class="table-scroll">
+              <table class="data-table" id="incidentsTable">
+                <thead>
+                  <tr>
+                    <th>Incidencia</th>
+                    <th>Reporta</th>
+                    <th>Reportado</th>
+                    <th>Tipo</th>
+                    <th>Severidad</th>
+                    <th>Estado</th>
+                    <th>Creada</th>
+                    <th class="table-actions-col">Acciones</th>
+                  </tr>
+                </thead>
+                <tbody id="incidentsTableBody">
+                  <tr>
+                    <td colspan="8">
+                      <div class="empty-state compact">Cargando incidencias...</div>
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </section>
+
+        <!-- =====================================================
+             SANCTIONS
+        ====================================================== -->
+
+        <section
+          id="section-sanctions"
+          class="dashboard-section"
+          data-section="sanctions"
+          aria-labelledby="sanctionsTitle"
+          hidden
+        >
+          <div class="section-heading">
+            <div>
+              <p class="eyebrow">Control disciplinario</p>
+              <h2 id="sanctionsTitle">Sanciones y bloqueos</h2>
+              <p>
+                Advertencias, bloqueos temporales, desactivación de servicios,
+                suspensión por documentos, efectivo pendiente y reincidencias.
+              </p>
+            </div>
+
+            <div class="section-actions">
+              <button class="btn btn-primary" type="button" data-action="open-sanction-modal">
+                Nueva sanción
+              </button>
+            </div>
+          </div>
+
+          <div class="table-card">
+            <div class="table-header">
+              <h3>Sanciones</h3>
+              <span id="sanctionsTableCount">0 registros</span>
+            </div>
+
+            <div class="table-scroll">
+              <table class="data-table" id="sanctionsTable">
+                <thead>
+                  <tr>
+                    <th>Persona</th>
+                    <th>Rol</th>
+                    <th>Tipo</th>
+                    <th>Severidad</th>
+                    <th>Activa</th>
+                    <th>Inicio</th>
+                    <th>Fin</th>
+                    <th class="table-actions-col">Acciones</th>
+                  </tr>
+                </thead>
+                <tbody id="sanctionsTableBody">
+                  <tr>
+                    <td colspan="8">
+                      <div class="empty-state compact">Cargando sanciones...</div>
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </section>
+
+        <!-- =====================================================
+             NOTIFICATIONS
+        ====================================================== -->
+
+        <section
+          id="section-notifications"
+          class="dashboard-section"
+          data-section="notifications"
+          aria-labelledby="notificationsTitle"
+          hidden
+        >
+          <div class="section-heading">
+            <div>
+              <p class="eyebrow">Comunicación</p>
+              <h2 id="notificationsTitle">Notificaciones</h2>
+              <p>
+                Envío de avisos a usuarios, conductores, comercios, agentes,
+                zonas completas o perfiles específicos.
+              </p>
+            </div>
+
+            <div class="section-actions">
+              <button class="btn btn-primary" type="button" data-action="open-notification-modal">
+                Nueva notificación
+              </button>
+            </div>
+          </div>
+
+          <div class="table-card">
+            <div class="table-header">
+              <h3>Historial de notificaciones</h3>
+              <span id="notificationsTableCount">0 registros</span>
+            </div>
+
+            <div class="table-scroll">
+              <table class="data-table" id="notificationsTable">
+                <thead>
+                  <tr>
+                    <th>Mensaje</th>
+                    <th>Destino</th>
+                    <th>Tipo</th>
+                    <th>Estado</th>
+                    <th>Creada</th>
+                    <th class="table-actions-col">Acciones</th>
+                  </tr>
+                </thead>
+                <tbody id="notificationsTableBody">
+                  <tr>
+                    <td colspan="6">
+                      <div class="empty-state compact">Cargando notificaciones...</div>
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </section>
+
+        <!-- =====================================================
+             AUDIT
+        ====================================================== -->
+
+        <section
+          id="section-audit"
+          class="dashboard-section"
+          data-section="audit"
+          aria-labelledby="auditTitle"
+          hidden
+        >
+          <div class="section-heading">
+            <div>
+              <p class="eyebrow">Trazabilidad</p>
+              <h2 id="auditTitle">Auditoría administrativa</h2>
+              <p>
+                Registro inalterable de acciones críticas: aprobaciones, rechazos,
+                bloqueos, cambios de zona, tarifas, permisos y creación de admins.
+              </p>
+            </div>
+
+            <div class="section-actions">
+              <button class="btn btn-secondary" type="button" data-action="reload-audit">
+                Actualizar auditoría
+              </button>
+            </div>
+          </div>
+
+          <div class="table-card">
+            <div class="table-header">
+              <h3>Admin actions</h3>
+              <span id="auditTableCount">0 registros</span>
+            </div>
+
+            <div class="table-scroll">
+              <table class="data-table" id="auditTable">
+                <thead>
+                  <tr>
+                    <th>Acción</th>
+                    <th>Admin</th>
+                    <th>Objetivo</th>
+                    <th>Rol objetivo</th>
+                    <th>Motivo</th>
+                    <th>Fecha</th>
+                    <th class="table-actions-col">Detalle</th>
+                  </tr>
+                </thead>
+                <tbody id="auditTableBody">
+                  <tr>
+                    <td colspan="7">
+                      <div class="empty-state compact">Cargando auditoría...</div>
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </section>
+
+        <!-- =====================================================
+             SETTINGS
+        ====================================================== -->
+
+        <section
+          id="section-settings"
+          class="dashboard-section"
+          data-section="settings"
+          aria-labelledby="settingsTitle"
+          hidden
+        >
+          <div class="section-heading">
+            <div>
+              <p class="eyebrow">Sistema</p>
+              <h2 id="settingsTitle">Configuración general</h2>
+              <p>
+                Parámetros globales de NIVO, permisos internos, operación,
+                mantenimiento, seguridad y futuras integraciones.
+              </p>
+            </div>
+          </div>
+
+          <div class="settings-grid">
+            <article class="panel">
+              <div class="panel-header">
+                <div>
+                  <p class="eyebrow">Administradores</p>
+                  <h3>Gestión de permisos</h3>
+                </div>
+              </div>
+
+              <p>
+                Los usuarios se convierten en administradores creando
+                <strong>admin_profiles/{uid}</strong>. No se cambia el role base
+                dentro de <strong>users/{uid}</strong>.
+              </p>
+
+              <button class="btn btn-secondary" type="button" data-section-target="users">
+                Ir a usuarios
+              </button>
+            </article>
+
+            <article class="panel">
+              <div class="panel-header">
+                <div>
+                  <p class="eyebrow">Operación</p>
+                  <h3>Modo de plataforma</h3>
+                </div>
+              </div>
+
+              <div id="appSettingsList" class="config-list">
+                <div class="empty-state compact">Configuraciones pendientes de cargar.</div>
+              </div>
+            </article>
+          </div>
+        </section>
+      </main>
+    </div>
+  </div>
+
+  <!-- =====================================================
+       DETAIL DRAWER
+  ====================================================== -->
+
+  <aside
+    id="detailDrawer"
+    class="detail-drawer"
+    aria-hidden="true"
+    aria-labelledby="detailDrawerTitle"
+  >
+    <div class="drawer-backdrop" data-action="close-detail-drawer"></div>
+
+    <div class="drawer-panel" role="dialog" aria-modal="true">
+      <header class="drawer-header">
+        <div>
+          <p id="detailDrawerEyebrow" class="eyebrow">Detalle</p>
+          <h2 id="detailDrawerTitle">Perfil seleccionado</h2>
+          <p id="detailDrawerSubtitle">Selecciona un registro para ver información.</p>
+        </div>
+
+        <button
+          class="icon-btn"
+          type="button"
+          data-action="close-detail-drawer"
+          aria-label="Cerrar detalle"
+        >
+          ×
+        </button>
+      </header>
+
+      <div class="drawer-tabs" role="tablist" aria-label="Secciones del perfil">
+        <button class="drawer-tab active" type="button" data-detail-tab="summary">Resumen</button>
+        <button class="drawer-tab" type="button" data-detail-tab="documents">Documentos</button>
+        <button class="drawer-tab" type="button" data-detail-tab="operation">Operación</button>
+        <button class="drawer-tab" type="button" data-detail-tab="finance">Finanzas</button>
+        <button class="drawer-tab" type="button" data-detail-tab="history">Historial</button>
+      </div>
+
+      <div class="drawer-body">
+        <section class="drawer-tab-panel active" data-detail-panel="summary">
+          <div id="detailSummaryPanel" class="detail-panel-content">
+            <div class="empty-state compact">No hay perfil seleccionado.</div>
+          </div>
+        </section>
+
+        <section class="drawer-tab-panel" data-detail-panel="documents" hidden>
+          <div id="detailDocumentsPanel" class="detail-panel-content">
+            <div class="empty-state compact">No hay documentos cargados.</div>
+          </div>
+        </section>
+
+        <section class="drawer-tab-panel" data-detail-panel="operation" hidden>
+          <div id="detailOperationPanel" class="detail-panel-content">
+            <div class="empty-state compact">No hay datos operativos cargados.</div>
+          </div>
+        </section>
+
+        <section class="drawer-tab-panel" data-detail-panel="finance" hidden>
+          <div id="detailFinancePanel" class="detail-panel-content">
+            <div class="empty-state compact">No hay datos financieros cargados.</div>
+          </div>
+        </section>
+
+        <section class="drawer-tab-panel" data-detail-panel="history" hidden>
+          <div id="detailHistoryPanel" class="detail-panel-content">
+            <div class="empty-state compact">No hay historial cargado.</div>
+          </div>
+        </section>
+      </div>
+
+      <footer class="drawer-footer">
+        <button class="btn btn-secondary" type="button" data-action="drawer-send-notification">
+          Notificar
+        </button>
+
+        <button class="btn btn-warning" type="button" data-action="drawer-require-correction">
+          Pedir corrección
+        </button>
+
+        <button class="btn btn-danger" type="button" data-action="drawer-block-profile">
+          Bloquear
+        </button>
+
+        <button class="btn btn-primary" type="button" data-action="drawer-approve-profile">
+          Aprobar
+        </button>
+      </footer>
+    </div>
+  </aside>
+
+  <!-- =====================================================
+       MODAL: REVIEW DECISION
+  ====================================================== -->
+
+  <div
+    id="reviewDecisionModal"
+    class="modal"
+    role="dialog"
+    aria-modal="true"
+    aria-labelledby="reviewDecisionTitle"
+    aria-hidden="true"
+  >
+    <div class="modal-backdrop" data-action="close-review-modal"></div>
+
+    <div class="modal-card">
+      <header class="modal-header">
+        <div>
+          <p class="eyebrow">Decisión administrativa</p>
+          <h2 id="reviewDecisionTitle">Revisar perfil</h2>
+        </div>
+
+        <button
+          class="icon-btn"
+          type="button"
+          data-action="close-review-modal"
+          aria-label="Cerrar"
+        >
+          ×
+        </button>
+      </header>
+
+      <form id="reviewDecisionForm" class="modal-form">
+        <input type="hidden" id="reviewTargetId" />
+        <input type="hidden" id="reviewTargetCollection" />
+        <input type="hidden" id="reviewTargetRole" />
+
+        <label>
+          Decisión
+          <select id="reviewDecisionType" required>
+            <option value="">Seleccionar decisión</option>
+            <option value="approve">Aprobar</option>
+            <option value="correction_required">Pedir corrección</option>
+            <option value="reject">Rechazar</option>
+            <option value="block">Bloquear</option>
+          </select>
+        </label>
+
+        <label>
+          Motivo / nota administrativa
+          <textarea
+            id="reviewDecisionReason"
+            rows="5"
+            placeholder="Escribe el motivo de la decisión. Este dato quedará guardado en auditoría."
+          ></textarea>
+        </label>
+
+        <div class="modal-warning">
+          Esta acción actualizará el perfil, el estado del usuario base cuando
+          aplique y creará un registro en admin_actions.
+        </div>
+
+        <footer class="modal-actions">
+          <button class="btn btn-secondary" type="button" data-action="close-review-modal">
+            Cancelar
+          </button>
+          <button class="btn btn-primary" type="submit">
+            Confirmar decisión
+          </button>
+        </footer>
+      </form>
+    </div>
+  </div>
+
+  <!-- =====================================================
+       MODAL: MAKE ADMIN
+  ====================================================== -->
+
+  <div
+    id="makeAdminModal"
+    class="modal"
+    role="dialog"
+    aria-modal="true"
+    aria-labelledby="makeAdminTitle"
+    aria-hidden="true"
+  >
+    <div class="modal-backdrop" data-action="close-make-admin-modal"></div>
+
+    <div class="modal-card modal-card-large">
+      <header class="modal-header">
+        <div>
+          <p class="eyebrow">Permisos administrativos</p>
+          <h2 id="makeAdminTitle">Convertir usuario en admin</h2>
+          <p>
+            Esta acción crea <strong>admin_profiles/{uid}</strong>.
+            No modifica <strong>users/{uid}.role</strong>.
+          </p>
+        </div>
+
+        <button
+          class="icon-btn"
+          type="button"
+          data-action="close-make-admin-modal"
+          aria-label="Cerrar"
+        >
+          ×
+        </button>
+      </header>
+
+      <form id="makeAdminForm" class="modal-form">
+        <input type="hidden" id="makeAdminUid" />
+        <input type="hidden" id="makeAdminEmail" />
+        <input type="hidden" id="makeAdminDisplayName" />
+
+        <label>
+          Rol administrativo
+          <select id="makeAdminRole" required>
+            <option value="">Seleccionar rol</option>
+            <option value="super_admin">Super admin</option>
+            <option value="admin">Admin</option>
+            <option value="operations">Operaciones</option>
+            <option value="support">Soporte</option>
+            <option value="finance">Finanzas</option>
+            <option value="reviewer">Reviewer</option>
+            <option value="viewer">Viewer</option>
+          </select>
+        </label>
+
+        <fieldset class="permissions-grid">
+          <legend>Permisos</legend>
+
+          <label><input type="checkbox" name="permissions" value="users" /> Usuarios</label>
+          <label><input type="checkbox" name="permissions" value="drivers" /> Conductores</label>
+          <label><input type="checkbox" name="permissions" value="commerce" /> Comercios</label>
+          <label><input type="checkbox" name="permissions" value="agents" /> Agentes</label>
+          <label><input type="checkbox" name="permissions" value="zones" /> Zonas</label>
+          <label><input type="checkbox" name="permissions" value="settings" /> Configuración</label>
+          <label><input type="checkbox" name="permissions" value="finance" /> Finanzas</label>
+          <label><input type="checkbox" name="permissions" value="locations" /> Ubicaciones</label>
+          <label><input type="checkbox" name="permissions" value="sanctions" /> Sanciones</label>
+          <label><input type="checkbox" name="permissions" value="notifications" /> Notificaciones</label>
+        </fieldset>
+
+        <div class="modal-warning">
+          Solo owner o super_admin pueden crear administradores. Esta acción será
+          guardada en auditoría.
+        </div>
+
+        <footer class="modal-actions">
+          <button class="btn btn-secondary" type="button" data-action="close-make-admin-modal">
+            Cancelar
+          </button>
+          <button class="btn btn-primary" type="submit">
+            Crear admin
+          </button>
+        </footer>
+      </form>
+    </div>
+  </div>
+
+  <!-- =====================================================
+       MODAL: ZONE
+  ====================================================== -->
+
+  <div
+    id="zoneModal"
+    class="modal"
+    role="dialog"
+    aria-modal="true"
+    aria-labelledby="zoneModalTitle"
+    aria-hidden="true"
+  >
+    <div class="modal-backdrop" data-action="close-zone-modal"></div>
+
+    <div class="modal-card modal-card-large">
+      <header class="modal-header">
+        <div>
+          <p class="eyebrow">Zona operativa</p>
+          <h2 id="zoneModalTitle">Crear / editar zona</h2>
+        </div>
+
+        <button
+          class="icon-btn"
+          type="button"
+          data-action="close-zone-modal"
+          aria-label="Cerrar"
+        >
+          ×
+        </button>
+      </header>
+
+      <form id="zoneForm" class="modal-form">
+        <input type="hidden" id="zoneId" />
+
+        <div class="form-grid">
+          <label>
+            País
+            <input id="zoneCountry" type="text" value="SV" required />
+          </label>
+
+          <label>
+            Departamento
+            <input id="zoneDepartment" type="text" placeholder="Ahuachapán" required />
+          </label>
+
+          <label>
+            Municipio
+            <input id="zoneMunicipality" type="text" placeholder="Ahuachapán" required />
+          </label>
+
+          <label>
+            Nombre visible
+            <input id="zoneDisplayName" type="text" placeholder="Ahuachapán Centro" required />
+          </label>
+        </div>
+
+        <fieldset class="permissions-grid">
+          <legend>Servicios activos</legend>
+          <label><input type="checkbox" id="zoneServiceRide" /> Viajes</label>
+          <label><input type="checkbox" id="zoneServiceDelivery" /> Delivery</label>
+          <label><input type="checkbox" id="zoneServicePackage" /> Paquetes</label>
+          <label><input type="checkbox" id="zoneServiceSchool" /> Escolar</label>
+        </fieldset>
+
+        <fieldset class="permissions-grid">
+          <legend>Transportes permitidos</legend>
+          <label><input type="checkbox" id="zoneTransportCar" /> Carro</label>
+          <label><input type="checkbox" id="zoneTransportMotorcycle" /> Moto</label>
+          <label><input type="checkbox" id="zoneTransportMototaxi" /> Mototaxi</label>
+          <label><input type="checkbox" id="zoneTransportQute" /> Qute</label>
+        </fieldset>
+
+        <label class="switch-row">
+          <input type="checkbox" id="zoneActive" />
+          <span>Zona activa</span>
+        </label>
+
+        <footer class="modal-actions">
+          <button class="btn btn-secondary" type="button" data-action="close-zone-modal">
+            Cancelar
+          </button>
+          <button class="btn btn-primary" type="submit">
+            Guardar zona
+          </button>
+        </footer>
+      </form>
+    </div>
+  </div>
+
+  <!-- =====================================================
+       MODAL: RIDE TYPE
+  ====================================================== -->
+
+  <div
+    id="rideTypeModal"
+    class="modal"
+    role="dialog"
+    aria-modal="true"
+    aria-labelledby="rideTypeModalTitle"
+    aria-hidden="true"
+  >
+    <div class="modal-backdrop" data-action="close-ride-type-modal"></div>
+
+    <div class="modal-card">
+      <header class="modal-header">
+        <div>
+          <p class="eyebrow">Categoría de transporte</p>
+          <h2 id="rideTypeModalTitle">Crear / editar categoría</h2>
+        </div>
+
+        <button
+          class="icon-btn"
+          type="button"
+          data-action="close-ride-type-modal"
+          aria-label="Cerrar"
+        >
+          ×
+        </button>
+      </header>
+
+      <form id="rideTypeForm" class="modal-form">
+        <label>
+          ID
+          <input id="rideTypeId" type="text" placeholder="car, motorcycle, mototaxi, qute" required />
+        </label>
+
+        <label>
+          Nombre visible
+          <input id="rideTypeTitle" type="text" placeholder="Vehículo" required />
+        </label>
+
+        <label>
+          Descripción
+          <textarea id="rideTypeDescription" rows="4" placeholder="Descripción de la categoría"></textarea>
+        </label>
+
+        <div class="form-grid">
+          <label>
+            Pasajeros máximos
+            <input id="rideTypeMaxPassengers" type="number" min="1" step="1" value="1" />
+          </label>
+
+          <label>
+            Orden
+            <input id="rideTypeSortOrder" type="number" min="0" step="1" value="0" />
+          </label>
+        </div>
+
+        <fieldset class="permissions-grid">
+          <legend>Reglas</legend>
+          <label><input type="checkbox" id="rideTypeActiveGlobally" /> Activo globalmente</label>
+          <label><input type="checkbox" id="rideTypeChargesPerPassenger" /> Cobra por persona</label>
+          <label><input type="checkbox" id="rideTypeRequiresPassengerSelection" /> Requiere selección de pasajeros</label>
+        </fieldset>
+
+        <footer class="modal-actions">
+          <button class="btn btn-secondary" type="button" data-action="close-ride-type-modal">
+            Cancelar
+          </button>
+          <button class="btn btn-primary" type="submit">
+            Guardar categoría
+          </button>
+        </footer>
+      </form>
+    </div>
+  </div>
+
+  <!-- =====================================================
+       MODAL: NOTIFICATION
+  ====================================================== -->
+
+  <div
+    id="notificationModal"
+    class="modal"
+    role="dialog"
+    aria-modal="true"
+    aria-labelledby="notificationModalTitle"
+    aria-hidden="true"
+  >
+    <div class="modal-backdrop" data-action="close-notification-modal"></div>
+
+    <div class="modal-card">
+      <header class="modal-header">
+        <div>
+          <p class="eyebrow">Comunicación NIVO</p>
+          <h2 id="notificationModalTitle">Enviar notificación</h2>
+        </div>
+
+        <button
+          class="icon-btn"
+          type="button"
+          data-action="close-notification-modal"
+          aria-label="Cerrar"
+        >
+          ×
+        </button>
+      </header>
+
+      <form id="notificationForm" class="modal-form">
+        <label>
+          Destino
+          <select id="notificationTargetType" required>
+            <option value="">Seleccionar destino</option>
+            <option value="all_users">Todos los usuarios</option>
+            <option value="users_by_zone">Usuarios por zona</option>
+            <option value="drivers_by_zone">Conductores por zona</option>
+            <option value="commerce_by_zone">Comercios por zona</option>
+            <option value="agents_by_zone">Agentes por zona</option>
+            <option value="single_uid">Perfil específico</option>
+          </select>
+        </label>
+
+        <label>
+          UID o zona
+          <input id="notificationTargetValue" type="text" placeholder="uid o serviceZoneId" />
+        </label>
+
+        <label>
+          Título
+          <input id="notificationTitle" type="text" placeholder="Título de la notificación" required />
+        </label>
+
+        <label>
+          Mensaje
+          <textarea id="notificationBody" rows="5" placeholder="Mensaje para enviar" required></textarea>
+        </label>
+
+        <label>
+          Tipo
+          <select id="notificationType" required>
+            <option value="info">Informativa</option>
+            <option value="promotion">Promoción</option>
+            <option value="warning">Advertencia</option>
+            <option value="account">Cuenta</option>
+            <option value="settlement">Liquidación</option>
+            <option value="documents">Documentos</option>
+          </select>
+        </label>
+
+        <footer class="modal-actions">
+          <button class="btn btn-secondary" type="button" data-action="close-notification-modal">
+            Cancelar
+          </button>
+          <button class="btn btn-primary" type="submit">
+            Crear notificación
+          </button>
+        </footer>
+      </form>
+    </div>
+  </div>
+
+  <!-- =====================================================
+       MODAL: CONFIRM
+  ====================================================== -->
+
+  <div
+    id="confirmModal"
+    class="modal"
+    role="dialog"
+    aria-modal="true"
+    aria-labelledby="confirmModalTitle"
+    aria-hidden="true"
+  >
+    <div class="modal-backdrop" data-action="close-confirm-modal"></div>
+
+    <div class="modal-card modal-card-small">
+      <header class="modal-header">
+        <div>
+          <p class="eyebrow">Confirmación</p>
+          <h2 id="confirmModalTitle">Confirmar acción</h2>
+        </div>
+      </header>
+
+      <div class="modal-body">
+        <p id="confirmModalMessage">
+          ¿Confirmas que deseas realizar esta acción?
+        </p>
+      </div>
+
+      <footer class="modal-actions">
+        <button class="btn btn-secondary" type="button" data-action="close-confirm-modal">
+          Cancelar
+        </button>
+        <button id="confirmModalAcceptBtn" class="btn btn-primary" type="button">
+          Confirmar
+        </button>
+      </footer>
+    </div>
+  </div>
+
+  <!-- =====================================================
+       IMAGE VIEWER
+  ====================================================== -->
+
+  <div
+    id="imageViewerModal"
+    class="image-viewer-modal"
+    role="dialog"
+    aria-modal="true"
+    aria-labelledby="imageViewerTitle"
+    aria-hidden="true"
+  >
+    <div class="modal-backdrop" data-action="close-image-viewer"></div>
+
+    <div class="image-viewer-card">
+      <header class="image-viewer-header">
+        <h2 id="imageViewerTitle">Documento</h2>
+        <button
+          class="icon-btn"
+          type="button"
+          data-action="close-image-viewer"
+          aria-label="Cerrar imagen"
+        >
+          ×
+        </button>
+      </header>
+
+      <div class="image-viewer-body">
+        <img id="imageViewerImg" src="" alt="Documento seleccionado" />
+      </div>
+    </div>
+  </div>
+
+  <!-- =====================================================
+       TOASTS / LIVE REGION
+  ====================================================== -->
+
+  <div id="toastRegion" class="toast-region" aria-live="polite" aria-atomic="true"></div>
+
+  <!-- =====================================================
+       SCRIPTS
+  ====================================================== -->
+
+  <script type="module" src="assets/js/auth.js"></script>
+  <script type="module" src="assets/js/dashboard.js"></script>
+</body>
+</html>
