@@ -50,9 +50,16 @@ const COLLECTIONS = Object.freeze({
   users: "users",
   adminProfiles: "admin_profiles",
   driverProfiles: "driver_profiles",
+  driverVehicles: "driver_vehicles",
+  driverWallets: "driver_wallets",
+  driverWalletTransactions: "driver_wallet_transactions",
+  driverTopupSessions: "driver_topup_sessions",
+  driverOffers: "driver_offers",
   commerceProfiles: "commerce_profiles",
   agentProfiles: "agent_profiles",
+  agentSales: "agent_sales",
   serviceZones: "service_zones",
+  fareConfigs: "fare_configs",
   rideTypes: "ride_types",
   adminActions: "admin_actions",
   notifications: "notifications",
@@ -60,12 +67,16 @@ const COLLECTIONS = Object.freeze({
   deliveryOrders: "delivery_orders",
   rideRequests: "ride_requests",
   incidents: "incidents",
+  safetyReports: "safety_reports",
   supportTickets: "support_tickets",
   sanctions: "sanctions",
-  wallets: "wallets",
-  walletLedger: "wallet_ledger",
-  topups: "topups",
-  agentTopups: "agent_topups",
+
+  // Compatibilidad con nombres que ya usa este dashboard.
+  wallets: "driver_wallets",
+  walletLedger: "driver_wallet_transactions",
+  topups: "driver_topup_sessions",
+  agentTopups: "agent_sales",
+
   paymentTransactions: "payment_transactions",
   cashSettlements: "cash_settlements",
   driverLocations: "driver_locations",
@@ -909,7 +920,7 @@ function renderMetrics() {
   const activeUsers = state.users.filter((item) => item.status === "active");
   const registeredClients = state.users.filter((item) => item.role === "user");
 
-  const activeDrivers = state.drivers.filter((item) => item.status === "active");
+  const activeDrivers = state.drivers.filter((item) => item.status === "approved");
   const pendingDrivers = state.drivers.filter((item) => DRIVER_REVIEW_STATUSES.has(item.status));
 
   const activeCommerce = state.commerce.filter((item) => item.status === "active");
@@ -1176,7 +1187,7 @@ function renderDriversTable() {
 
   let items = [...state.drivers];
 
-  if (quick === "active") items = items.filter((item) => item.status === "active");
+  if (quick === "active") items = items.filter((item) => item.status === "approved");
   if (quick === "online") items = items.filter((item) => get(item, "availability.isOnline", false) === true);
   if (quick === "pending_review") items = items.filter((item) => item.status === "pending_review");
   if (quick === "blocked") items = items.filter((item) => item.status === "blocked");
@@ -1786,11 +1797,11 @@ function renderWalletLedgerTable() {
   tbody.innerHTML = state.walletLedger.map((movement) => `
     <tr>
       <td>${escapeHtml(movement.id)}</td>
-      <td>${escapeHtml(movement.uid || movement.userId || "—")}</td>
+      <td>${escapeHtml(movement.driverId || movement.uid || movement.userId || "—")}</td>
       <td>${escapeHtml(movement.type || "—")}</td>
       <td>${formatMoney(movement.amount || 0)}</td>
       <td>${escapeHtml(movement.source || "—")}</td>
-      <td>${statusBadge(movement.status)}</td>
+      <td>${badge(movement.direction || movement.status || "—", "status-badge")}</td>
       <td>${formatDate(movement.createdAt)}</td>
       <td class="table-actions-col">
         <button class="btn btn-secondary" type="button">Ver</button>
@@ -2651,15 +2662,34 @@ async function handleReviewDecisionSubmit() {
 }
 
 async function applyDriverDecision(driverId, decision, reason) {
-  const driver = state.indexes.driversById.get(driverId) || await fetchDocument(COLLECTIONS.driverProfiles, driverId);
+  const driver =
+    state.indexes.driversById.get(driverId) ||
+    await fetchDocument(COLLECTIONS.driverProfiles, driverId);
 
   if (!driver) {
     throw new Error("No se encontró el conductor.");
   }
 
+  const driverUid = driver.uid || driver.driverId || driverId;
+  const primaryVehicleId = driver.primaryVehicleId || `${driverUid}_primary_vehicle`;
+
   const batch = writeBatch(state.db);
+
   const driverRef = doc(state.db, COLLECTIONS.driverProfiles, driverId);
-  const userRef = doc(state.db, COLLECTIONS.users, driver.uid || driverId);
+  const vehicleRef = doc(state.db, COLLECTIONS.driverVehicles, primaryVehicleId);
+  const walletRef = doc(state.db, COLLECTIONS.driverWallets, driverUid);
+
+  const walletSnap = await getDoc(walletRef);
+  const walletData = walletSnap.exists() ? walletSnap.data() : {};
+
+  const existingAvailable = Number(get(walletData, "balance.availableBalance", walletData.availableBalance || 0)) || 0;
+  const existingWelcome = Number(get(walletData, "balance.welcomeBalance", walletData.welcomeBalance || 0)) || 0;
+  const existingRecharged = Number(get(walletData, "balance.rechargedBalance", walletData.rechargedBalance || 0)) || 0;
+  const existingTotalCredited = Number(get(walletData, "balance.totalCredited", walletData.totalCredited || 0)) || 0;
+  const existingTotalDebited = Number(get(walletData, "balance.totalDebited", walletData.totalDebited || 0)) || 0;
+
+  const minimumBalanceRequired = Number(get(walletData, "rules.minimumBalanceRequired", walletData.minimumBalanceRequired || 1)) || 1;
+  const lowBalanceWarning = Number(get(walletData, "rules.lowBalanceWarning", walletData.lowBalanceWarning || 2)) || 2;
 
   const baseVerification = {
     "verification.reviewedAt": serverTimestamp(),
@@ -2668,33 +2698,51 @@ async function applyDriverDecision(driverId, decision, reason) {
   };
 
   let profileUpdate = {};
-  let userUpdate = {};
+  let vehicleUpdate = {};
   let action = "";
   let notification = null;
 
   if (decision === "approve") {
     profileUpdate = {
-      status: "active",
+      status: "approved",
       statusReason: null,
 
       ...baseVerification,
 
       "verification.selfieVerified": true,
       "verification.vehicleVerified": true,
+      "verification.duplicateCheckStatus": "approved",
       "verification.rejectionReason": null,
       "verification.reviewReason": null,
 
       "policy.canReceiveTasks": true,
+      "policy.canReceiveCommissionedTasks": true,
       "policy.blockReason": null,
       "policy.blockedAt": null,
       "policy.blockedBy": null,
 
+      "availability.isOnline": false,
+      "availability.isAvailable": false,
+      "availability.canReceiveRideOffers": get(driver, "enabledServices.ride", false) === true,
+      "availability.canReceiveDeliveryOffers": get(driver, "enabledServices.delivery", false) === true,
+      "availability.canReceivePackageOffers": get(driver, "enabledServices.package", false) === true,
+      "availability.currentTaskId": null,
+      "availability.currentTaskType": null,
+
       updatedAt: serverTimestamp(),
     };
 
-    userUpdate = {
-      status: "active",
-      profileCompleted: true,
+    vehicleUpdate = {
+      vehicleId: primaryVehicleId,
+      driverId: driverUid,
+      uid: driverUid,
+      status: "approved",
+      statusReason: null,
+      isPrimary: true,
+      isActive: true,
+      allowedServices: driver.enabledServices || {},
+      reviewedAt: serverTimestamp(),
+      reviewedBy: state.firebaseUser.uid,
       updatedAt: serverTimestamp(),
     };
 
@@ -2702,14 +2750,84 @@ async function applyDriverDecision(driverId, decision, reason) {
 
     notification = {
       title: "Tu cuenta fue aprobada",
-      body: "Ya puedes empezar a operar en NIVO cuando completes tu disponibilidad.",
+      body: "Ya puedes empezar a operar en NIVO. Recibiste tu bono de bienvenida para comisiones.",
       type: "driver_approved",
+      category: "approval",
     };
+
+    const shouldCreditWelcome = existingWelcome <= 0;
+    const welcomeCredit = shouldCreditWelcome ? 10 : 0;
+
+    const walletPayload = {
+      driverId: driverUid,
+      currencyCode: "USD",
+      status: "active",
+
+      balance: {
+        availableBalance: existingAvailable + welcomeCredit,
+        welcomeBalance: existingWelcome + welcomeCredit,
+        rechargedBalance: existingRecharged,
+        totalCredited: existingTotalCredited + welcomeCredit,
+        totalDebited: existingTotalDebited,
+      },
+
+      // Fallbacks compatibles con modelos anteriores.
+      availableBalance: existingAvailable + welcomeCredit,
+      welcomeBalance: existingWelcome + welcomeCredit,
+      rechargedBalance: existingRecharged,
+      totalCredited: existingTotalCredited + welcomeCredit,
+      totalDebited: existingTotalDebited,
+
+      rules: {
+        minimumBalanceRequired,
+        canReceiveCommissionedTasks: true,
+        lowBalanceWarning,
+      },
+
+      minimumBalanceRequired,
+      canReceiveCommissionedTasks: true,
+      lowBalanceWarning,
+
+      updatedAt: serverTimestamp(),
+      updatedBy: state.firebaseUser.uid,
+    };
+
+    if (!walletSnap.exists()) {
+      walletPayload.createdAt = serverTimestamp();
+      walletPayload.createdBy = state.firebaseUser.uid;
+    }
+
+    batch.set(walletRef, sanitizeForFirestore(walletPayload), { merge: true });
+
+    if (shouldCreditWelcome) {
+      const txRef = doc(collection(state.db, COLLECTIONS.driverWalletTransactions));
+
+      batch.set(txRef, sanitizeForFirestore({
+        transactionId: txRef.id,
+        driverId: driverUid,
+        type: "welcome_bonus",
+        direction: "credit",
+        amount: 10,
+        currencyCode: "USD",
+        description: "Bono de bienvenida NIVO para pago de comisiones.",
+        serviceType: null,
+        serviceId: null,
+        source: "dashboard_admin",
+        createdAt: serverTimestamp(),
+        createdBy: state.firebaseUser.uid,
+        createdByEmail: state.firebaseUser.email || null,
+        metadata: {
+          approvalAction: "driver_approved",
+          nonWithdrawable: true,
+          commissionOnly: true,
+        },
+      }));
+    }
   }
 
   if (decision === "correction_required") {
     profileUpdate = {
-      status: "correction_required",
+      status: "pending_documents",
       statusReason: reason || "Documentos requieren corrección",
 
       ...baseVerification,
@@ -2718,13 +2836,29 @@ async function applyDriverDecision(driverId, decision, reason) {
       "verification.rejectionReason": null,
 
       "policy.canReceiveTasks": false,
+      "policy.canReceiveCommissionedTasks": false,
+
+      "availability.isOnline": false,
+      "availability.isAvailable": false,
+      "availability.canReceiveRideOffers": false,
+      "availability.canReceiveDeliveryOffers": false,
+      "availability.canReceivePackageOffers": false,
+
+      "registration.documentsCompleted": false,
+      "registration.currentStep": "upload_documents",
 
       updatedAt: serverTimestamp(),
     };
 
-    userUpdate = {
-      status: "pending_profile",
-      profileCompleted: false,
+    vehicleUpdate = {
+      vehicleId: primaryVehicleId,
+      driverId: driverUid,
+      uid: driverUid,
+      status: "pending_review",
+      statusReason: reason || "Documentos requieren corrección",
+      isActive: false,
+      reviewedAt: serverTimestamp(),
+      reviewedBy: state.firebaseUser.uid,
       updatedAt: serverTimestamp(),
     };
 
@@ -2734,6 +2868,7 @@ async function applyDriverDecision(driverId, decision, reason) {
       title: "Debes corregir tus documentos",
       body: reason || "Revisa tu app NIVO Driver para completar la corrección.",
       type: "driver_correction_required",
+      category: "documents",
     };
   }
 
@@ -2744,17 +2879,31 @@ async function applyDriverDecision(driverId, decision, reason) {
 
       ...baseVerification,
 
+      "verification.duplicateCheckStatus": "rejected",
       "verification.rejectionReason": reason || "Solicitud rechazada.",
       "verification.reviewReason": null,
 
       "policy.canReceiveTasks": false,
+      "policy.canReceiveCommissionedTasks": false,
+
+      "availability.isOnline": false,
+      "availability.isAvailable": false,
+      "availability.canReceiveRideOffers": false,
+      "availability.canReceiveDeliveryOffers": false,
+      "availability.canReceivePackageOffers": false,
 
       updatedAt: serverTimestamp(),
     };
 
-    userUpdate = {
+    vehicleUpdate = {
+      vehicleId: primaryVehicleId,
+      driverId: driverUid,
+      uid: driverUid,
       status: "rejected",
-      profileCompleted: false,
+      statusReason: reason || "Solicitud rechazada",
+      isActive: false,
+      reviewedAt: serverTimestamp(),
+      reviewedBy: state.firebaseUser.uid,
       updatedAt: serverTimestamp(),
     };
 
@@ -2764,6 +2913,7 @@ async function applyDriverDecision(driverId, decision, reason) {
       title: "Tu solicitud no fue aprobada",
       body: reason || "Tu perfil de conductor no fue aprobado.",
       type: "driver_rejected",
+      category: "approval",
     };
   }
 
@@ -2775,15 +2925,29 @@ async function applyDriverDecision(driverId, decision, reason) {
       ...baseVerification,
 
       "policy.canReceiveTasks": false,
+      "policy.canReceiveCommissionedTasks": false,
       "policy.blockReason": reason || "Bloqueo administrativo",
       "policy.blockedAt": serverTimestamp(),
       "policy.blockedBy": state.firebaseUser.uid,
 
+      "availability.isOnline": false,
+      "availability.isAvailable": false,
+      "availability.canReceiveRideOffers": false,
+      "availability.canReceiveDeliveryOffers": false,
+      "availability.canReceivePackageOffers": false,
+
       updatedAt: serverTimestamp(),
     };
 
-    userUpdate = {
+    vehicleUpdate = {
+      vehicleId: primaryVehicleId,
+      driverId: driverUid,
+      uid: driverUid,
       status: "blocked",
+      statusReason: reason || "Bloqueo administrativo",
+      isActive: false,
+      reviewedAt: serverTimestamp(),
+      reviewedBy: state.firebaseUser.uid,
       updatedAt: serverTimestamp(),
     };
 
@@ -2793,6 +2957,7 @@ async function applyDriverDecision(driverId, decision, reason) {
       title: "Tu cuenta de conductor fue bloqueada",
       body: reason || "Contacta a soporte NIVO para más información.",
       type: "driver_blocked",
+      category: "account",
     };
   }
 
@@ -2801,7 +2966,7 @@ async function applyDriverDecision(driverId, decision, reason) {
   }
 
   batch.update(driverRef, profileUpdate);
-  batch.update(userRef, userUpdate);
+  batch.set(vehicleRef, sanitizeForFirestore(vehicleUpdate), { merge: true });
 
   addAdminActionToBatch(batch, {
     action,
@@ -2812,1397 +2977,29 @@ async function applyDriverDecision(driverId, decision, reason) {
     before: auditSnapshot(driver),
     after: {
       status: profileUpdate.status,
-      userStatus: userUpdate.status,
       policyCanReceiveTasks: profileUpdate["policy.canReceiveTasks"] ?? null,
+      vehicleStatus: vehicleUpdate.status || null,
     },
     metadata: {
       decision,
+      driverUid,
+      primaryVehicleId,
     },
   });
 
   if (notification) {
     addNotificationToBatch(batch, {
-      uid: driver.uid || driverId,
+      uid: driverUid,
+      recipientRole: "driver",
       title: notification.title,
       body: notification.body,
       type: notification.type,
-      targetRole: "driver",
+      category: notification.category,
     });
   }
 
   await batch.commit();
 }
-
-async function applyCommerceDecision(commerceId, decision, reason) {
-  const commerce = state.indexes.commerceById.get(commerceId) || await fetchDocument(COLLECTIONS.commerceProfiles, commerceId);
-
-  if (!commerce) {
-    throw new Error("No se encontró el comercio.");
-  }
-
-  const batch = writeBatch(state.db);
-  const commerceRef = doc(state.db, COLLECTIONS.commerceProfiles, commerceId);
-  const userRef = doc(state.db, COLLECTIONS.users, commerce.uid || commerce.ownerUid || commerceId);
-
-  const baseVerification = {
-    "verification.reviewedAt": serverTimestamp(),
-    "verification.reviewedBy": state.firebaseUser.uid,
-    "verification.adminNote": reason || null,
-  };
-
-  let profileUpdate = {};
-  let userUpdate = {};
-  let action = "";
-  let notification = null;
-
-  if (decision === "approve") {
-    profileUpdate = {
-      status: "active",
-
-      ...baseVerification,
-
-      "verification.status": "approved",
-      "verification.rejectionReason": null,
-      "verification.reviewReason": null,
-
-      canReceiveOrders: true,
-      isVisible: true,
-
-      updatedAt: serverTimestamp(),
-    };
-
-    userUpdate = {
-      status: "active",
-      profileCompleted: true,
-      updatedAt: serverTimestamp(),
-    };
-
-    action = "commerce_approved";
-
-    notification = {
-      title: "Tu comercio fue aprobado",
-      body: "Tu comercio ya puede operar en NIVO.",
-      type: "commerce_approved",
-    };
-  }
-
-  if (decision === "correction_required") {
-    profileUpdate = {
-      status: "correction_required",
-
-      ...baseVerification,
-
-      "verification.status": "correction_required",
-      "verification.reviewReason": reason || "Debes corregir la información del comercio.",
-      "verification.rejectionReason": null,
-
-      canReceiveOrders: false,
-      isVisible: false,
-
-      updatedAt: serverTimestamp(),
-    };
-
-    userUpdate = {
-      status: "pending_profile",
-      profileCompleted: false,
-      updatedAt: serverTimestamp(),
-    };
-
-    action = "commerce_correction_required";
-
-    notification = {
-      title: "Tu comercio necesita corrección",
-      body: reason || "Revisa tu app NIVO Commerce para completar la corrección.",
-      type: "commerce_correction_required",
-    };
-  }
-
-  if (decision === "reject") {
-    profileUpdate = {
-      status: "rejected",
-
-      ...baseVerification,
-
-      "verification.status": "rejected",
-      "verification.rejectionReason": reason || "Comercio rechazado.",
-      "verification.reviewReason": null,
-
-      canReceiveOrders: false,
-      isVisible: false,
-
-      updatedAt: serverTimestamp(),
-    };
-
-    userUpdate = {
-      status: "rejected",
-      profileCompleted: false,
-      updatedAt: serverTimestamp(),
-    };
-
-    action = "commerce_rejected";
-
-    notification = {
-      title: "Tu comercio no fue aprobado",
-      body: reason || "Tu comercio no fue aprobado para operar en NIVO.",
-      type: "commerce_rejected",
-    };
-  }
-
-  if (decision === "block") {
-    profileUpdate = {
-      status: "blocked",
-
-      ...baseVerification,
-
-      "verification.status": "blocked",
-
-      canReceiveOrders: false,
-      isVisible: false,
-
-      updatedAt: serverTimestamp(),
-    };
-
-    userUpdate = {
-      status: "blocked",
-      updatedAt: serverTimestamp(),
-    };
-
-    action = "commerce_blocked";
-
-    notification = {
-      title: "Tu comercio fue bloqueado",
-      body: reason || "Contacta a soporte NIVO para más información.",
-      type: "commerce_blocked",
-    };
-  }
-
-  if (!action) {
-    throw new Error("Decisión de comercio no reconocida.");
-  }
-
-  batch.update(commerceRef, profileUpdate);
-  batch.update(userRef, userUpdate);
-
-  addAdminActionToBatch(batch, {
-    action,
-    targetCollection: COLLECTIONS.commerceProfiles,
-    targetId: commerceId,
-    targetRole: "commerce",
-    reason: reason || null,
-    before: auditSnapshot(commerce),
-    after: {
-      status: profileUpdate.status,
-      userStatus: userUpdate.status,
-      canReceiveOrders: profileUpdate.canReceiveOrders,
-      isVisible: profileUpdate.isVisible,
-    },
-    metadata: {
-      decision,
-    },
-  });
-
-  if (notification) {
-    addNotificationToBatch(batch, {
-      uid: commerce.uid || commerce.ownerUid || commerceId,
-      title: notification.title,
-      body: notification.body,
-      type: notification.type,
-      targetRole: "commerce",
-    });
-  }
-
-  await batch.commit();
-}
-
-/* =========================================================
-   USER STATUS / MAKE ADMIN
-========================================================= */
-
-function confirmUserStatusChange(userId, nextStatus) {
-  const user = state.indexes.usersById.get(userId);
-  if (!user) return showToast("No se encontró el usuario.", "error");
-
-  const label = nextStatus === "active" ? "reactivar" : "bloquear";
-
-  openConfirmModal({
-    title: `Confirmar ${label}`,
-    message: `¿Confirmas que deseas ${label} la cuenta de ${user.fullName || user.email || userId}?`,
-    onConfirm: async () => {
-      await updateUserStatus(userId, nextStatus);
-    },
-  });
-}
-
-async function updateUserStatus(userId, nextStatus) {
-  const user = state.indexes.usersById.get(userId);
-  if (!user) throw new Error("No se encontró el usuario.");
-
-  const batch = writeBatch(state.db);
-  const userRef = doc(state.db, COLLECTIONS.users, userId);
-
-  batch.update(userRef, {
-    status: nextStatus,
-    updatedAt: serverTimestamp(),
-  });
-
-  addAdminActionToBatch(batch, {
-    action: nextStatus === "active" ? "user_reactivated" : "user_blocked",
-    targetCollection: COLLECTIONS.users,
-    targetId: userId,
-    targetRole: user.role || null,
-    reason: nextStatus === "active" ? "Reactivación administrativa" : "Bloqueo administrativo",
-    before: auditSnapshot(user),
-    after: {
-      status: nextStatus,
-    },
-  });
-
-  await batch.commit();
-  await loadDashboardData();
-
-  showToast("Estado de usuario actualizado.", "success", "Usuario actualizado");
-}
-
-function openMakeAdminModal(userId) {
-  const user = state.indexes.usersById.get(userId);
-
-  if (!user) {
-    showToast("No se encontró el usuario seleccionado.", "error");
-    return;
-  }
-
-  if (state.indexes.adminsById.has(userId)) {
-    showToast("Este usuario ya tiene perfil administrativo.", "warning", "Ya es admin");
-    return;
-  }
-
-  $("#makeAdminUid").value = userId;
-  $("#makeAdminEmail").value = user.email || "";
-  $("#makeAdminDisplayName").value = user.fullName || user.email || userId;
-  $("#makeAdminRole").value = "admin";
-
-  $$("input[name='permissions']").forEach((checkbox) => {
-    checkbox.checked = false;
-  });
-
-  applyDefaultPermissionsForAdminRole("admin");
-
-  openModal("makeAdminModal");
-}
-
-function applyDefaultPermissionsForAdminRole(role) {
-  const presets = {
-    super_admin: ["users", "drivers", "commerce", "agents", "zones", "settings", "finance", "locations", "sanctions", "notifications"],
-    admin: ["users", "drivers", "commerce", "agents", "sanctions", "notifications"],
-    operations: ["users", "drivers", "commerce", "agents", "zones", "locations", "notifications"],
-    support: ["users", "drivers", "commerce", "agents", "sanctions", "notifications"],
-    finance: ["finance", "users", "drivers", "agents"],
-    reviewer: ["drivers", "commerce", "agents", "notifications"],
-    viewer: [],
-  };
-
-  const allowed = new Set(presets[role] || []);
-
-  $$("input[name='permissions']").forEach((checkbox) => {
-    checkbox.checked = allowed.has(checkbox.value);
-  });
-}
-
-async function handleMakeAdminSubmit() {
-  const uid = normalizeText($("#makeAdminUid")?.value);
-  const email = normalizeEmail($("#makeAdminEmail")?.value);
-  const displayName = normalizeText($("#makeAdminDisplayName")?.value);
-  const role = normalizeText($("#makeAdminRole")?.value);
-
-  if (!uid || !email || !displayName || !role) {
-    showToast("Faltan datos para crear el perfil admin.", "warning", "Datos incompletos");
-    return;
-  }
-
-  const user = state.indexes.usersById.get(uid);
-
-  if (!user) {
-    showToast("No se encontró el usuario base.", "error");
-    return;
-  }
-
-  const permissions = {};
-
-  $$("input[name='permissions']").forEach((checkbox) => {
-    permissions[checkbox.value] = checkbox.checked === true;
-  });
-
-  try {
-    setFormLoading("makeAdminForm", true);
-
-    const batch = writeBatch(state.db);
-    const adminRef = doc(state.db, COLLECTIONS.adminProfiles, uid);
-
-    const adminProfile = {
-      uid,
-      email,
-      displayName,
-      role,
-      status: "active",
-      permissions,
-      createdAt: serverTimestamp(),
-      updatedAt: serverTimestamp(),
-      lastLoginAt: null,
-      createdBy: state.firebaseUser.uid,
-      updatedBy: state.firebaseUser.uid,
-    };
-
-    batch.set(adminRef, adminProfile);
-
-    addAdminActionToBatch(batch, {
-      action: "admin_profile_created",
-      targetCollection: COLLECTIONS.adminProfiles,
-      targetId: uid,
-      targetRole: role,
-      reason: "Usuario convertido en administrador desde dashboard",
-      before: null,
-      after: {
-        uid,
-        email,
-        displayName,
-        role,
-        status: "active",
-        permissions,
-      },
-      metadata: {
-        baseUserRole: user.role || null,
-        baseUserStatus: user.status || null,
-      },
-    });
-
-    await batch.commit();
-
-    closeModal("makeAdminModal");
-    await loadDashboardData();
-
-    showToast("Perfil administrativo creado correctamente.", "success", "Admin creado");
-  } catch (error) {
-    console.error("[NIVO Dashboard] Error creando admin:", error);
-    showToast(
-      error.message || "No se pudo crear el perfil administrativo. Revisa permisos owner/super_admin.",
-      "error",
-      "Error creando admin"
-    );
-  } finally {
-    setFormLoading("makeAdminForm", false);
-  }
-}
-
-/* =========================================================
-   ZONES
-========================================================= */
-
-function openZoneModal(zoneId = null) {
-  const zone = zoneId ? state.indexes.zonesById.get(zoneId) : null;
-
-  $("#zoneId").value = zone?.id || "";
-  $("#zoneCountry").value = zone?.country || "SV";
-  $("#zoneDepartment").value = zone?.department || "";
-  $("#zoneMunicipality").value = zone?.municipality || "";
-  $("#zoneDisplayName").value = zone?.displayName || "";
-
-  $("#zoneServiceRide").checked = get(zone, "enabledServices.ride", false);
-  $("#zoneServiceDelivery").checked = get(zone, "enabledServices.delivery", false);
-  $("#zoneServicePackage").checked = get(zone, "enabledServices.package", false);
-  $("#zoneServiceSchool").checked = get(zone, "enabledServices.school", false);
-
-  $("#zoneTransportCar").checked = get(zone, "transportConfigs.car.active", false);
-  $("#zoneTransportMotorcycle").checked = get(zone, "transportConfigs.motorcycle.active", false);
-  $("#zoneTransportMototaxi").checked = get(zone, "transportConfigs.mototaxi.active", false);
-  $("#zoneTransportQute").checked = get(zone, "transportConfigs.qute.active", false);
-
-  $("#zoneActive").checked = zone?.active === true;
-
-  setText("zoneModalTitle", zone ? "Editar zona operativa" : "Crear zona operativa");
-
-  openModal("zoneModal");
-}
-
-async function handleZoneSubmit() {
-  const existingId = normalizeText($("#zoneId")?.value);
-  const country = normalizeText($("#zoneCountry")?.value || "SV").toUpperCase();
-  const department = normalizeText($("#zoneDepartment")?.value);
-  const municipality = normalizeText($("#zoneMunicipality")?.value);
-  const displayName = normalizeText($("#zoneDisplayName")?.value);
-  const zoneId = existingId || buildServiceZoneId(country, department, municipality);
-
-  if (!country || !department || !municipality || !displayName || !zoneId) {
-    showToast("Completa país, departamento, municipio y nombre visible.", "warning", "Zona incompleta");
-    return;
-  }
-
-  const exists = state.indexes.zonesById.has(zoneId);
-
-  const data = {
-    id: zoneId,
-    serviceZoneId: zoneId,
-    country,
-    department,
-    municipality,
-    displayName,
-    currencyCode: "USD",
-    active: $("#zoneActive")?.checked === true,
-
-    enabledServices: {
-      ride: $("#zoneServiceRide")?.checked === true,
-      delivery: $("#zoneServiceDelivery")?.checked === true,
-      package: $("#zoneServicePackage")?.checked === true,
-      school: $("#zoneServiceSchool")?.checked === true,
-    },
-
-    transportConfigs: {
-      car: buildDefaultTransportConfig("car", $("#zoneTransportCar")?.checked === true),
-      motorcycle: buildDefaultTransportConfig("motorcycle", $("#zoneTransportMotorcycle")?.checked === true),
-      mototaxi: buildDefaultTransportConfig("mototaxi", $("#zoneTransportMototaxi")?.checked === true),
-      qute: buildDefaultTransportConfig("qute", $("#zoneTransportQute")?.checked === true),
-    },
-
-    platformCommissionRate: 0,
-    updatedAt: serverTimestamp(),
-  };
-
-  if (!exists) {
-    data.createdAt = serverTimestamp();
-  }
-
-  try {
-    setFormLoading("zoneForm", true);
-
-    const batch = writeBatch(state.db);
-    const zoneRef = doc(state.db, COLLECTIONS.serviceZones, zoneId);
-
-    batch.set(zoneRef, data, { merge: true });
-
-    addAdminActionToBatch(batch, {
-      action: exists ? "service_zone_updated" : "service_zone_created",
-      targetCollection: COLLECTIONS.serviceZones,
-      targetId: zoneId,
-      targetRole: null,
-      reason: exists ? "Zona actualizada desde dashboard" : "Zona creada desde dashboard",
-      before: exists ? auditSnapshot(state.indexes.zonesById.get(zoneId)) : null,
-      after: {
-        country,
-        department,
-        municipality,
-        displayName,
-        active: data.active,
-        enabledServices: data.enabledServices,
-      },
-    });
-
-    await batch.commit();
-
-    closeModal("zoneModal");
-    await loadDashboardData();
-
-    showToast("Zona guardada correctamente.", "success", "Zona actualizada");
-  } catch (error) {
-    console.error("[NIVO Dashboard] Error guardando zona:", error);
-    showToast(error.message || "No se pudo guardar la zona.", "error", "Error");
-  } finally {
-    setFormLoading("zoneForm", false);
-  }
-}
-
-function buildDefaultTransportConfig(type, active) {
-  const base = {
-    active,
-    transportId: type,
-    transportTitle: vehicleLabel(type),
-    maxPassengers: type === "car" ? 4 : 1,
-    baseFare: type === "car" ? 1.0 : 0.5,
-    minimumFare: type === "car" ? 1.5 : 0.5,
-    pricePerKm: type === "car" ? 0.55 : 0,
-    pricePerMinute: type === "car" ? 0.07 : 0,
-    chargesPerPassenger: type !== "car",
-    requiresPassengerSelection: type !== "car",
-    maxAutoPricedZoneLevel: 3,
-    outOfZoneRequiresConfirmation: true,
-    zoneFixedFareIsPerPassenger: type !== "car",
-  };
-
-  if (type === "mototaxi" || type === "qute") {
-    base.urbanFarePerPassenger = 0.5;
-    base.outOfUrbanFarePerPassenger = 1.0;
-  }
-
-  return base;
-}
-
-/* =========================================================
-   RIDE TYPES
-========================================================= */
-
-function openRideTypeModal(typeId = null) {
-  const type = typeId ? state.indexes.rideTypesById.get(typeId) : null;
-
-  $("#rideTypeId").value = type?.id || "";
-  $("#rideTypeId").disabled = Boolean(type);
-  $("#rideTypeTitle").value = type?.title || "";
-  $("#rideTypeDescription").value = type?.description || "";
-  $("#rideTypeMaxPassengers").value = type?.maxPassengers || 1;
-  $("#rideTypeSortOrder").value = type?.sortOrder || 0;
-  $("#rideTypeActiveGlobally").checked = type?.activeGlobally === true;
-  $("#rideTypeChargesPerPassenger").checked = type?.chargesPerPassenger === true;
-  $("#rideTypeRequiresPassengerSelection").checked = type?.requiresPassengerSelection === true;
-
-  setText("rideTypeModalTitle", type ? "Editar categoría" : "Crear categoría");
-
-  openModal("rideTypeModal");
-}
-
-async function handleRideTypeSubmit() {
-  const id = slugify($("#rideTypeId")?.value);
-  const existing = state.indexes.rideTypesById.get(id);
-
-  const title = normalizeText($("#rideTypeTitle")?.value);
-  const description = normalizeText($("#rideTypeDescription")?.value);
-  const maxPassengers = Number($("#rideTypeMaxPassengers")?.value || 1);
-  const sortOrder = Number($("#rideTypeSortOrder")?.value || 0);
-
-  if (!id || !title) {
-    showToast("Ingresa ID y nombre visible de la categoría.", "warning", "Categoría incompleta");
-    return;
-  }
-
-  const data = {
-    id,
-    title,
-    description: description || null,
-    activeGlobally: $("#rideTypeActiveGlobally")?.checked === true,
-    chargesPerPassenger: $("#rideTypeChargesPerPassenger")?.checked === true,
-    requiresPassengerSelection: $("#rideTypeRequiresPassengerSelection")?.checked === true,
-    maxPassengers: Number.isFinite(maxPassengers) && maxPassengers > 0 ? maxPassengers : 1,
-    sortOrder: Number.isFinite(sortOrder) ? sortOrder : 0,
-    updatedAt: serverTimestamp(),
-  };
-
-  if (!existing) {
-    data.createdAt = serverTimestamp();
-  }
-
-  try {
-    setFormLoading("rideTypeForm", true);
-
-    const batch = writeBatch(state.db);
-    const ref = doc(state.db, COLLECTIONS.rideTypes, id);
-
-    batch.set(ref, data, { merge: true });
-
-    addAdminActionToBatch(batch, {
-      action: existing ? "ride_type_updated" : "ride_type_created",
-      targetCollection: COLLECTIONS.rideTypes,
-      targetId: id,
-      reason: existing ? "Categoría actualizada desde dashboard" : "Categoría creada desde dashboard",
-      before: existing ? auditSnapshot(existing) : null,
-      after: {
-        id,
-        title,
-        activeGlobally: data.activeGlobally,
-        maxPassengers: data.maxPassengers,
-      },
-    });
-
-    await batch.commit();
-
-    $("#rideTypeId").disabled = false;
-    closeModal("rideTypeModal");
-    await loadDashboardData();
-
-    showToast("Categoría guardada correctamente.", "success", "Categoría actualizada");
-  } catch (error) {
-    console.error("[NIVO Dashboard] Error guardando categoría:", error);
-    showToast(error.message || "No se pudo guardar la categoría.", "error", "Error");
-  } finally {
-    setFormLoading("rideTypeForm", false);
-  }
-}
-
-/* =========================================================
-   NOTIFICATIONS
-========================================================= */
-
-function openNotificationModal() {
-  $("#notificationTargetType").value = "";
-  $("#notificationTargetValue").value = "";
-  $("#notificationTitle").value = "";
-  $("#notificationBody").value = "";
-  $("#notificationType").value = "info";
-
-  openModal("notificationModal");
-}
-
-function openNotificationFromDrawer() {
-  const active = state.activeDetail;
-
-  if (!active) {
-    openNotificationModal();
-    return;
-  }
-
-  const data = active.data || {};
-
-  $("#notificationTargetType").value = "single_uid";
-  $("#notificationTargetValue").value = data.uid || data.ownerUid || data.driverId || data.agentId || active.id;
-  $("#notificationTitle").value = "";
-  $("#notificationBody").value = "";
-  $("#notificationType").value = "account";
-
-  openModal("notificationModal");
-}
-
-async function handleNotificationSubmit() {
-  const targetType = normalizeText($("#notificationTargetType")?.value);
-  const targetValue = normalizeText($("#notificationTargetValue")?.value);
-  const title = normalizeText($("#notificationTitle")?.value);
-  const body = normalizeText($("#notificationBody")?.value);
-  const type = normalizeText($("#notificationType")?.value || "info");
-
-  if (!targetType || !title || !body) {
-    showToast("Completa destino, título y mensaje.", "warning", "Notificación incompleta");
-    return;
-  }
-
-  try {
-    setFormLoading("notificationForm", true);
-
-    const ref = doc(collection(state.db, COLLECTIONS.notifications));
-
-    const data = {
-      notificationId: ref.id,
-      targetType,
-      targetValue: targetValue || null,
-      uid: targetType === "single_uid" ? targetValue : null,
-      userId: targetType === "single_uid" ? targetValue : null,
-      title,
-      body,
-      type,
-      read: false,
-      status: "created",
-      createdBy: state.firebaseUser.uid,
-      createdByEmail: state.firebaseUser.email || null,
-      createdAt: serverTimestamp(),
-    };
-
-    await setDoc(ref, data);
-
-    await createAdminAction({
-      action: "notification_created",
-      targetCollection: COLLECTIONS.notifications,
-      targetId: ref.id,
-      reason: `Notificación creada para ${targetType}`,
-      after: {
-        targetType,
-        targetValue: targetValue || null,
-        title,
-        type,
-      },
-    });
-
-    closeModal("notificationModal");
-    await loadDashboardData();
-
-    showToast("Notificación creada correctamente.", "success", "Notificación guardada");
-  } catch (error) {
-    console.error("[NIVO Dashboard] Error creando notificación:", error);
-    showToast(error.message || "No se pudo crear la notificación.", "error", "Error");
-  } finally {
-    setFormLoading("notificationForm", false);
-  }
-}
-
-/* =========================================================
-   DRAWER QUICK ACTIONS
-========================================================= */
-
-function openReviewFromDrawer(decision) {
-  const active = state.activeDetail;
-
-  if (!active || !["driver", "commerce"].includes(active.type)) {
-    showToast("Esta acción solo aplica para conductores o comercios.", "warning");
-    return;
-  }
-
-  openReviewModal({
-    targetId: active.id,
-    targetCollection: active.collection,
-    targetRole: active.type,
-    decision,
-  });
-}
-
-/* =========================================================
-   AUDITORÍA / BATCH HELPERS
-========================================================= */
-
-function addAdminActionToBatch(batch, payload) {
-  const actionRef = doc(collection(state.db, COLLECTIONS.adminActions));
-
-  batch.set(actionRef, sanitizeForFirestore({
-    action: payload.action,
-    adminId: state.firebaseUser.uid,
-    adminEmail: state.firebaseUser.email || state.adminContext?.email || null,
-    targetCollection: payload.targetCollection || null,
-    targetId: payload.targetId || null,
-    targetRole: payload.targetRole || null,
-    reason: payload.reason || null,
-    before: payload.before || null,
-    after: payload.after || null,
-    metadata: payload.metadata || null,
-    createdAt: serverTimestamp(),
-  }));
-}
-
-async function createAdminAction(payload) {
-  const actionRef = doc(collection(state.db, COLLECTIONS.adminActions));
-
-  await setDoc(actionRef, sanitizeForFirestore({
-    action: payload.action,
-    adminId: state.firebaseUser.uid,
-    adminEmail: state.firebaseUser.email || state.adminContext?.email || null,
-    targetCollection: payload.targetCollection || null,
-    targetId: payload.targetId || null,
-    targetRole: payload.targetRole || null,
-    reason: payload.reason || null,
-    before: payload.before || null,
-    after: payload.after || null,
-    metadata: payload.metadata || null,
-    createdAt: serverTimestamp(),
-  }));
-}
-
-function addNotificationToBatch(batch, payload) {
-  const notificationRef = doc(collection(state.db, COLLECTIONS.notifications));
-
-  batch.set(notificationRef, sanitizeForFirestore({
-    notificationId: notificationRef.id,
-    uid: payload.uid,
-    userId: payload.uid,
-    targetRole: payload.targetRole || null,
-    title: payload.title,
-    body: payload.body,
-    type: payload.type || "info",
-    read: false,
-    status: "created",
-    createdBy: state.firebaseUser.uid,
-    createdByEmail: state.firebaseUser.email || null,
-    createdAt: serverTimestamp(),
-  }));
-}
-
-function auditSnapshot(data) {
-  if (!data) return null;
-
-  return sanitizeForFirestore({
-    id: data.id || null,
-    uid: data.uid || null,
-    email: data.email || null,
-    fullName: data.fullName || data.ownerName || data.businessName || null,
-    role: data.role || null,
-    status: data.status || null,
-    serviceZoneId: data.serviceZoneId || data.registeredZoneId || null,
-    vehicleType: data.vehicleType || null,
-    canReceiveOrders: data.canReceiveOrders ?? null,
-    isVisible: data.isVisible ?? null,
-  });
-}
-
-/* =========================================================
-   MODALS / CONFIRM / IMAGE VIEWER
-========================================================= */
-
-function openModal(id) {
-  const modal = document.getElementById(id);
-  if (!modal) return;
-
-  modal.classList.add("is-open");
-  modal.setAttribute("aria-hidden", "false");
-  document.body.classList.add("is-locked");
-
-  const firstInput = $("input, select, textarea, button", modal);
-  if (firstInput) {
-    window.setTimeout(() => firstInput.focus(), 60);
-  }
-}
-
-function closeModal(id) {
-  const modal = document.getElementById(id);
-  if (!modal) return;
-
-  modal.classList.remove("is-open");
-  modal.setAttribute("aria-hidden", "true");
-
-  if (!$(".modal.is-open") && !$("#detailDrawer")?.classList.contains("is-open")) {
-    document.body.classList.remove("is-locked");
-  }
-
-  if (id === "rideTypeModal") {
-    const rideTypeId = $("#rideTypeId");
-    if (rideTypeId) rideTypeId.disabled = false;
-  }
-}
-
-function closeAllModals() {
-  $$(".modal.is-open").forEach((modal) => {
-    modal.classList.remove("is-open");
-    modal.setAttribute("aria-hidden", "true");
-  });
-
-  if (!$("#detailDrawer")?.classList.contains("is-open")) {
-    document.body.classList.remove("is-locked");
-  }
-
-  const rideTypeId = $("#rideTypeId");
-  if (rideTypeId) rideTypeId.disabled = false;
-}
-
-function openConfirmModal({ title, message, onConfirm }) {
-  setText("confirmModalTitle", title || "Confirmar acción");
-  setText("confirmModalMessage", message || "¿Confirmas que deseas realizar esta acción?");
-
-  state.pendingConfirm = onConfirm;
-
-  openModal("confirmModal");
-
-  const acceptBtn = $("#confirmModalAcceptBtn");
-  if (acceptBtn) {
-    acceptBtn.onclick = async () => {
-      try {
-        acceptBtn.disabled = true;
-
-        if (typeof state.pendingConfirm === "function") {
-          await state.pendingConfirm();
-        }
-
-        closeConfirmModal();
-      } catch (error) {
-        console.error("[NIVO Dashboard] Error en confirmación:", error);
-        showToast(error.message || "No se pudo realizar la acción.", "error", "Error");
-      } finally {
-        acceptBtn.disabled = false;
-      }
-    };
-  }
-}
-
-function closeConfirmModal() {
-  state.pendingConfirm = null;
-  closeModal("confirmModal");
-}
-
-function openImageViewer(src, title = "Documento") {
-  if (!src) {
-    showToast("No hay imagen para mostrar.", "warning");
-    return;
-  }
-
-  setText("imageViewerTitle", title || "Documento");
-
-  const img = $("#imageViewerImg");
-  if (img) {
-    img.src = src;
-    img.alt = title || "Documento seleccionado";
-  }
-
-  const modal = $("#imageViewerModal");
-  if (!modal) return;
-
-  modal.classList.add("is-open");
-  modal.setAttribute("aria-hidden", "false");
-  document.body.classList.add("is-locked");
-}
-
-function closeImageViewer() {
-  const modal = $("#imageViewerModal");
-  if (!modal) return;
-
-  modal.classList.remove("is-open");
-  modal.setAttribute("aria-hidden", "true");
-
-  const img = $("#imageViewerImg");
-  if (img) {
-    img.src = "";
-  }
-
-  if (!$(".modal.is-open") && !$("#detailDrawer")?.classList.contains("is-open")) {
-    document.body.classList.remove("is-locked");
-  }
-}
-
-/* =========================================================
-   FILTERS / ZONES
-========================================================= */
-
-function populateZoneFilters() {
-  const filters = [
-    "usersZoneFilter",
-    "driversZoneFilter",
-    "commerceZoneFilter",
-  ];
-
-  const options = state.serviceZones
-    .slice()
-    .sort((a, b) => String(a.displayName || a.id).localeCompare(String(b.displayName || b.id)))
-    .map((zone) => {
-      const label = zone.displayName || `${zone.department || ""} ${zone.municipality || ""}`.trim() || zone.id;
-      return `<option value="${escapeAttr(zone.id)}">${escapeHtml(label)}</option>`;
-    })
-    .join("");
-
-  filters.forEach((id) => {
-    const select = document.getElementById(id);
-    if (!select) return;
-
-    const current = select.value || "all";
-    select.innerHTML = `<option value="all">Todas las zonas</option>${options}`;
-    select.value = current;
-  });
-}
-
-/* =========================================================
-   COMPONENTES HTML
-========================================================= */
-
-function profileCell({ name, subtitle, imageUrl }) {
-  const safeName = name || "NIVO";
-  const initials = getInitials(safeName);
-
-  return `
-    <div class="profile-cell">
-      <div class="profile-avatar">
-        ${
-          imageUrl
-            ? `<img src="${escapeAttr(imageUrl)}" alt="${escapeAttr(safeName)}" loading="lazy" />`
-            : `<span>${escapeHtml(initials)}</span>`
-        }
-      </div>
-      <div class="profile-meta">
-        <strong>${escapeHtml(safeName)}</strong>
-        <span>${escapeHtml(subtitle || "Sin información")}</span>
-      </div>
-    </div>
-  `;
-}
-
-function statusBadge(status) {
-  const raw = status || "pending";
-  const label = STATUS_LABELS[raw] || raw;
-
-  return `<span class="status-badge ${escapeAttr(raw)}">${escapeHtml(label)}</span>`;
-}
-
-function booleanBadge(value, trueText = "Sí", falseText = "No") {
-  return value
-    ? `<span class="status-badge active">${escapeHtml(trueText)}</span>`
-    : `<span class="status-badge">${escapeHtml(falseText)}</span>`;
-}
-
-function badge(label, className = "status-badge") {
-  return `<span class="${escapeAttr(className)}">${escapeHtml(label || "—")}</span>`;
-}
-
-function servicesBadges(services = {}) {
-  const serviceLabels = {
-    ride: "Viajes",
-    delivery: "Delivery",
-    package: "Paquetes",
-    school: "Escolar",
-  };
-
-  const active = Object.entries(serviceLabels)
-    .filter(([key]) => services?.[key] === true)
-    .map(([, label]) => `<span class="service-badge active">${escapeHtml(label)}</span>`);
-
-  return `<div class="badge-row">${active.length ? active.join("") : `<span class="service-badge">Sin servicios</span>`}</div>`;
-}
-
-function transportConfigsBadges(configs = {}) {
-  const items = Object.entries(configs || {})
-    .filter(([, config]) => config?.active === true)
-    .map(([key]) => `<span class="vehicle-badge">${escapeHtml(vehicleLabel(key))}</span>`);
-
-  return `<div class="badge-row">${items.length ? items.join("") : `<span class="vehicle-badge">Sin transportes</span>`}</div>`;
-}
-
-function availabilityBadge(availability = {}) {
-  if (availability?.currentTaskId) {
-    return `<span class="status-badge pending_review">Ocupado</span>`;
-  }
-
-  if (availability?.isOnline && availability?.isAvailable) {
-    return `<span class="status-badge active">Disponible</span>`;
-  }
-
-  if (availability?.isOnline) {
-    return `<span class="status-badge correction_required">Online</span>`;
-  }
-
-  return `<span class="status-badge">Offline</span>`;
-}
-
-function documentsSummary(documents = {}) {
-  const values = Object.values(documents || {});
-  const completed = values.filter(Boolean).length;
-  const total = values.length || 10;
-
-  const className = completed >= total
-    ? "active"
-    : completed > 0
-      ? "pending_review"
-      : "pending_documents";
-
-  return `<span class="status-badge ${className}">${completed}/${total}</span>`;
-}
-
-function renderReviewCards(items, role) {
-  if (!items.length) {
-    return `<div class="empty-state compact">Sin registros en esta etapa.</div>`;
-  }
-
-  return items.slice(0, 8).map((item) => {
-    const name = role === "commerce"
-      ? item.businessName || item.ownerName || item.email || item.id
-      : item.fullName || item.email || item.id;
-
-    return `
-      <div class="review-card">
-        <strong>${escapeHtml(name)}</strong>
-        <span>${escapeHtml(item.serviceZoneId || item.registeredZoneId || "Sin zona")}</span>
-        <span>${escapeHtml(STATUS_LABELS[item.status] || item.status || "Sin estado")}</span>
-      </div>
-    `;
-  }).join("");
-}
-
-function detailField(label, value) {
-  return `
-    <div class="detail-field">
-      <span>${escapeHtml(label)}</span>
-      <strong>${escapeHtml(value === undefined || value === null || value === "" ? "—" : String(value))}</strong>
-    </div>
-  `;
-}
-
-function documentCard(label, url) {
-  if (!url) {
-    return `
-      <div class="document-card">
-        <button type="button" disabled>
-          <span>${escapeHtml(label)} no cargado</span>
-        </button>
-      </div>
-    `;
-  }
-
-  return `
-    <div class="document-card">
-      <button
-        type="button"
-        data-action="view-image"
-        data-src="${escapeAttr(url)}"
-        data-title="${escapeAttr(label)}"
-      >
-        <img src="${escapeAttr(url)}" alt="${escapeAttr(label)}" loading="lazy" />
-      </button>
-      <span>${escapeHtml(label)}</span>
-    </div>
-  `;
-}
-
-function emptyTableRow(colspan, message) {
-  return `
-    <tr>
-      <td colspan="${Number(colspan) || 1}">
-        <div class="empty-state compact">${escapeHtml(message)}</div>
-      </td>
-    </tr>
-  `;
-}
-
-/* =========================================================
-   HELPERS DE DATOS
-========================================================= */
-
-function normalizeVehicleType(value) {
-  const raw = normalizeText(value).toLowerCase();
-
-  if (raw === "vehicle") return "car";
-  if (raw === "moto") return "motorcycle";
-
-  return raw || "unknown";
-}
-
-function vehicleLabel(value) {
-  const safe = normalizeVehicleType(value);
-  return VEHICLE_LABELS[safe] || VEHICLE_LABELS[value] || value || "Sin vehículo";
-}
-
-function formatZone(zoneId, department, municipality) {
-  const zone = zoneId ? state.indexes.zonesById.get(zoneId) : null;
-
-  if (zone) {
-    return zone.displayName || `${zone.department || ""} ${zone.municipality || ""}`.trim() || zone.id;
-  }
-
-  if (department || municipality) {
-    return `${department || ""}${department && municipality ? " / " : ""}${municipality || ""}`;
-  }
-
-  return zoneId || "Sin zona";
-}
-
-function getInitials(value) {
-  const parts = normalizeText(value).split(/\s+/).filter(Boolean);
-
-  if (!parts.length) return "N";
-
-  return parts
-    .slice(0, 2)
-    .map((part) => part[0])
-    .join("")
-    .toUpperCase();
-}
-
-function searchable(item, keys) {
-  const values = keys.map((key) => get(item, key, ""));
-  return values.join(" ").toLowerCase();
-}
-
-function get(obj, path, fallback = undefined) {
-  if (!obj || !path) return fallback;
-
-  const parts = String(path).split(".");
-  let current = obj;
-
-  for (const part of parts) {
-    if (current === null || current === undefined) return fallback;
-    current = current[part];
-  }
-
-  return current === undefined || current === null ? fallback : current;
-}
-
-function sumBy(items, field) {
-  return items.reduce((total, item) => {
-    const value = Number(get(item, field, 0));
-    return total + (Number.isFinite(value) ? value : 0);
-  }, 0);
-}
-
-function formatMoney(value) {
-  const number = Number(value || 0);
-
-  return new Intl.NumberFormat("es-SV", {
-    style: "currency",
-    currency: "USD",
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  }).format(Number.isFinite(number) ? number : 0);
-}
-
-function formatPercent(value) {
-  const number = Number(value || 0);
-
-  if (!Number.isFinite(number)) return "0%";
-
-  if (number > 0 && number <= 1) {
-    return `${(number * 100).toFixed(2)}%`;
-  }
-
-  return `${number.toFixed(2)}%`;
-}
-
-function formatDate(value) {
-  if (!value) return "—";
-
-  try {
-    let date = null;
-
-    if (typeof value.toDate === "function") {
-      date = value.toDate();
-    } else if (value instanceof Date) {
-      date = value;
-    } else if (typeof value === "string" || typeof value === "number") {
-      date = new Date(value);
-    }
-
-    if (!date || Number.isNaN(date.getTime())) return "—";
-
-    return new Intl.DateTimeFormat("es-SV", {
-      dateStyle: "medium",
-      timeStyle: "short",
-    }).format(date);
-  } catch (_) {
-    return "—";
-  }
-}
-
-function buildServiceZoneId(country, department, municipality) {
-  const safeCountry = slugify(country || "SV");
-  const safeDepartment = slugify(department);
-  const safeMunicipality = slugify(municipality);
-
-  if (!safeDepartment || !safeMunicipality) return null;
-
-  return `${safeCountry}-${safeDepartment}-${safeMunicipality}`;
-}
-
-function normalizeText(value) {
-  return String(value || "").trim();
-}
-
-function normalizeEmail(value) {
-  return normalizeText(value).toLowerCase();
-}
-
-function removeAccents(value) {
-  return String(value || "")
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "");
-}
-
-function slugify(value) {
-  return removeAccents(value)
-    .toLowerCase()
-    .trim()
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-+|-+$/g, "");
-}
-
-function sanitizeForFirestore(value) {
-  if (Array.isArray(value)) {
-    return value.map((item) => sanitizeForFirestore(item)).filter((item) => item !== undefined);
-  }
-
-  if (value && typeof value === "object") {
-    if (typeof value.toDate === "function") return value;
-
-    const cleaned = {};
-
-    Object.entries(value).forEach(([key, item]) => {
-      if (item === undefined) return;
-      cleaned[key] = sanitizeForFirestore(item);
-    });
-
-    return cleaned;
-  }
-
-  return value;
-}
-
-/* =========================================================
-   DOM HELPERS
-========================================================= */
-
-function setText(id, value) {
-  const el = document.getElementById(id);
-  if (el) el.textContent = value === undefined || value === null ? "" : String(value);
-}
-
-function setHTML(id, html) {
-  const el = document.getElementById(id);
-  if (el) el.innerHTML = html || "";
-}
-
-function setFormLoading(formId, loading) {
-  const form = document.getElementById(formId);
-  if (!form) return;
-
-  form.classList.toggle("is-loading", Boolean(loading));
-
-  $$("input, select, textarea, button", form).forEach((field) => {
-    field.disabled = Boolean(loading);
-  });
-}
-
-function setDashboardLoading(loading) {
-  const shell = $("#dashboardShell");
-  if (shell) shell.classList.toggle("is-loading", Boolean(loading));
-}
-
-function showToast(message, type = "info", title = null) {
-  const region = $("#toastRegion");
-  if (!region) return;
-
-  const toast = document.createElement("div");
-  toast.className = `toast ${type}`;
-  toast.innerHTML = `
-    <strong>${escapeHtml(title || toastTitle(type))}</strong>
-    <span>${escapeHtml(message || "")}</span>
-  `;
-
-  region.appendChild(toast);
-
-  window.setTimeout(() => {
-    toast.style.opacity = "0";
-    toast.style.transform = "translateY(10px)";
-
-    window.setTimeout(() => {
-      toast.remove();
-    }, 220);
-  }, 4600);
-}
-
-function toastTitle(type) {
-  if (type === "success") return "Listo";
-  if (type === "warning") return "Atención";
-  if (type === "error") return "Error";
-  return "NIVO";
-}
-
-function escapeHtml(value) {
-  return String(value ?? "")
-    .replaceAll("&", "&amp;")
-    .replaceAll("<", "&lt;")
-    .replaceAll(">", "&gt;")
-    .replaceAll('"', "&quot;")
-    .replaceAll("'", "&#039;");
-}
-
-function escapeAttr(value) {
-  return escapeHtml(value).replaceAll("`", "&#096;");
-}
-
-function sleep(ms) {
-  return new Promise((resolve) => window.setTimeout(resolve, ms));
-}
-
-function debounce(fn, wait = 160) {
-  let timeout = null;
-
-  return (...args) => {
-    window.clearTimeout(timeout);
-    timeout = window.setTimeout(() => fn(...args), wait);
-  };
-}
-
-async function logout() {
-  try {
-    await window.NIVOAuthLogoutHandler();
-  } catch (error) {
-    console.error("[NIVO Dashboard] Error cerrando sesión:", error);
-    safeRedirect("login.html");
-  }
-}
-
-function safeRedirect(url) {
-  window.location.assign(url);
-}
-
-/* =========================================================
-   API DEBUG
-========================================================= */
-
-window.NIVODashboard = {
-  state,
-  reload: loadDashboardData,
-  showSection,
-};
 async function applyCommerceDecision(commerceId, decision, reason) {
   const commerce = state.indexes.commerceById.get(commerceId) || await fetchDocument(COLLECTIONS.commerceProfiles, commerceId);
 
