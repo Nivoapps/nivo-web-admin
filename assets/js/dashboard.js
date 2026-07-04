@@ -269,6 +269,7 @@ const state = {
   commerce: [],
   agents: [],
   serviceZones: [],
+  fareConfigs: [],
   rideTypes: [],
   adminActions: [],
   notifications: [],
@@ -289,6 +290,7 @@ const state = {
     agentsById: new Map(),
     adminsById: new Map(),
     zonesById: new Map(),
+    fareConfigsById: new Map(),
     rideTypesById: new Map(),
   },
 
@@ -723,6 +725,7 @@ async function loadDashboardData(options = {}) {
       commerce,
       agents,
       serviceZones,
+      fareConfigs,
       rideTypes,
       adminActions,
       notifications,
@@ -742,6 +745,7 @@ async function loadDashboardData(options = {}) {
       fetchCollection(COLLECTIONS.commerceProfiles, { max: DEFAULT_LIMITS.commerce, orderField: "createdAt" }),
       fetchCollection(COLLECTIONS.agentProfiles, { max: DEFAULT_LIMITS.agents, orderField: "createdAt" }),
       fetchCollection(COLLECTIONS.serviceZones, { max: DEFAULT_LIMITS.zones, orderField: "createdAt" }),
+      fetchCollection(COLLECTIONS.fareConfigs, { max: DEFAULT_LIMITS.zones, orderField: "updatedAt" }),
       fetchCollection(COLLECTIONS.rideTypes, { max: DEFAULT_LIMITS.rideTypes, orderField: "sortOrder", direction: "asc" }),
       fetchCollection(COLLECTIONS.adminActions, { max: DEFAULT_LIMITS.audit, orderField: "createdAt" }),
       fetchCollection(COLLECTIONS.notifications, { max: DEFAULT_LIMITS.notifications, orderField: "createdAt" }),
@@ -762,7 +766,8 @@ async function loadDashboardData(options = {}) {
     state.commerce = commerce;
     state.agents = agents;
     state.serviceZones = serviceZones;
-    state.rideTypes = rideTypes;
+    state.fareConfigs = fareConfigs;
+    state.rideTypes = buildRideTypesFromFareConfigs(fareConfigs, serviceZones, rideTypes);
     state.adminActions = adminActions;
     state.notifications = notifications;
     state.deliveryOrders = deliveryOrders;
@@ -845,11 +850,70 @@ function rebuildIndexes() {
   state.indexes.agentsById = toIndex(state.agents);
   state.indexes.adminsById = toIndex(state.adminProfiles);
   state.indexes.zonesById = toIndex(state.serviceZones);
+  state.indexes.fareConfigsById = toIndex(state.fareConfigs);
   state.indexes.rideTypesById = toIndex(state.rideTypes);
 }
 
 function toIndex(items) {
   return new Map(items.map((item) => [item.id, item]));
+}
+
+function buildRideTypesFromFareConfigs(fareConfigs = [], serviceZones = [], fallbackRideTypes = []) {
+  const zoneMap = new Map(serviceZones.map((zone) => [zone.id, zone]));
+
+  const sortOrder = {
+    car: 10,
+    motorcycle: 20,
+    mototaxi: 30,
+    qute: 40,
+  };
+
+  const derived = [];
+
+  fareConfigs.forEach((fareConfig) => {
+    const zoneId = fareConfig.serviceZoneId || fareConfig.id;
+    const zone = zoneMap.get(zoneId);
+    const configs = fareConfig.transportConfigs || {};
+
+    Object.entries(configs).forEach(([rawType, config]) => {
+      const type = normalizeVehicleType(rawType);
+
+      derived.push({
+        id: `${zoneId}__${type}`,
+        transportType: type,
+        sourceCollection: COLLECTIONS.fareConfigs,
+        sourceDocumentId: fareConfig.id,
+        serviceZoneId: zoneId,
+
+        title: config.transportTitle || vehicleLabel(type),
+        description: `${zone?.displayName || zoneId} · fare_configs/${fareConfig.id}`,
+
+        activeGlobally: config.active === true,
+        maxPassengers: config.maxPassengers || 1,
+        chargesPerPassenger: config.chargesPerPassenger === true,
+        requiresPassengerSelection: config.requiresPassengerSelection === true,
+
+        baseFare: config.baseFare ?? null,
+        minimumFare: config.minimumFare ?? null,
+        pricePerKm: config.pricePerKm ?? null,
+        pricePerMinute: config.pricePerMinute ?? null,
+
+        sortOrder: sortOrder[type] || 999,
+        createdAt: fareConfig.createdAt || null,
+        updatedAt: fareConfig.updatedAt || null,
+      });
+    });
+  });
+
+  if (derived.length) {
+    return derived.sort((a, b) => {
+      const zoneCompare = String(a.serviceZoneId || "").localeCompare(String(b.serviceZoneId || ""));
+      if (zoneCompare !== 0) return zoneCompare;
+      return Number(a.sortOrder || 999) - Number(b.sortOrder || 999);
+    });
+  }
+
+  return fallbackRideTypes || [];
 }
 
 /* =========================================================
